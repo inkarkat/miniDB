@@ -148,6 +148,10 @@ updateTable()
     [ -r "$TABLE_FILESPEC" ] || initializeTable  # Need to write at least one line so that sed does processing; can use that for a descriptive header.
 
     local key="${line%%$'\t'*}"
+    if [ ! "$key" ]; then
+	echo >&2 'ERROR: Key must not be empty.'
+	exit 2
+    fi
     local literalKeyPattern="$(printf %s "$key" | literalPattern)"
     # If we find the key, duplicate its line into the hold space; this serves as
     # a marker that we don't need to append the line at the end.
