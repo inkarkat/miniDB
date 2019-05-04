@@ -117,13 +117,19 @@ elif [ ! "$table" ]; then
 fi
 
 
+literalPattern()
+{
+    sed -e 's/[][\$*.^/]/\\&/g'
+}
+
 readTable()
 {
     [ -e "$TABLE_FILESPEC" ] || return 1
 
+    local literalKeyPattern="$(printf %s "$key" | literalPattern)"
     if [ "$fallbackKey" ]; then
 	# Get the $key line, with fallback to $fallbackKey
-	local literalFallbackPattern="$(printf %s "$fallbackKey" | sed -e 's/[][\$*.^/]/\\&/g')"
+	local literalFallbackPattern="$(printf %s "$fallbackKey" | literalPattern)"
 	local line="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e "/^${literalKeyPattern}\\t\\|^${literalFallbackPattern}\\t/H" -e "\${ g; s/^\\n//; s/^${literalFallbackPattern}\\t.*\\n//; s/\\n${literalFallbackPattern}\\t.*\$//; /./p }" "$TABLE_FILESPEC")"
     else
 	local line="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e "/^${literalKeyPattern}\\t/p" "$TABLE_FILESPEC")"
@@ -141,6 +147,8 @@ updateTable()
 {
     [ -r "$TABLE_FILESPEC" ] || initializeTable  # Need to write at least one line so that sed does processing; can use that for a descriptive header.
 
+    local key="${line%%$'\t'*}"
+    local literalKeyPattern="$(printf %s "$key" | literalPattern)"
     # If we find the key, duplicate its line into the hold space; this serves as
     # a marker that we don't need to append the line at the end.
     # On the last line, we check the hold space, and skip further processing of
@@ -153,7 +161,6 @@ updateTable()
 	"$TABLE_FILESPEC" || return 1
 }
 
-literalKeyPattern="$(printf %s "$key" | sed -e 's/[][\$*.^/]/\\&/g')"
 typeset -a IGNORE_HEADER_LINE_SED_ARGS=(-e '1{ /^#/b }')
 
 readonly CONFIG_DIRSPEC="${XDG_CONFIG_HOME:-$HOME/.config}${namespace:+/}$namespace"
