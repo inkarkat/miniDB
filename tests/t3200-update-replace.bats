@@ -23,3 +23,11 @@ load temp_database
     assert_table_row "$BATS_TEST_NAME" 4 "bar	A woman walks by a	22"
     assert_table_row "$BATS_TEST_NAME" 7 "o O	A key updated with space	99"
 }
+
+@test "cannot update header line" {
+    initialize_table "$BATS_TEST_NAME" from one-entry
+
+    miniDB --table "$BATS_TEST_NAME" --update "# KEY	NEW	HERE"
+    assert_table_row "$BATS_TEST_NAME" 1 "# KEY	COLUMN	..."
+    assert_table_row "$BATS_TEST_NAME" 3 "# KEY	NEW	HERE"
+}

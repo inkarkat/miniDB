@@ -158,6 +158,7 @@ updateTable()
     # On the last line, we check the hold space, and skip further processing of
     # the line if the hold space isn't empty.
     sed -i \
+	"${IGNORE_HEADER_LINE_SED_ARGS[@]}" \
 	-e "/^${literalKeyPattern}\\t/h" \
 	-e "/^${literalKeyPattern}\\t/c$line"  \
 	-e '${ x; /./{ x; b; }; x; }' \
