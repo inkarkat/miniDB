@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 
-export XDG_CONFIG_HOME="$BATS_TEST_DIRNAME"
+load canned_databases
 
 @test "existing single key can be queried" {
     run miniDB --table one-entry --query foo

@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 
-export XDG_CONFIG_HOME="$BATS_TEST_DIRNAME"
+load canned_databases
 
 @test "normal fallback key is used when key does not exist" {
     run miniDB --table some-entries --query notInHere --fallback foxbar

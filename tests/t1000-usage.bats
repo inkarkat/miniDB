@@ -1,5 +1,7 @@
 #!/usr/bin/env bats
 
+load canned_databases
+
 @test "no arguments prints message and usage instructions" {
     run miniDB
     [ $status -eq 2 ]
