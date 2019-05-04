@@ -1,0 +1,9 @@
+# KEY	COLUMN	...
+foo	The Foo is here	42
+Foo	The upper-case variant	82
+bar	A man walks into a	21
+foobar	The original one	1
+foxbar	A variant	2
+o O	A key with space in it	88
+*	Looks like a placeholder to me	0
+baz	Last one here	99

@@ -1,0 +1,153 @@
+#!/bin/bash
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--schema "KEY COL1 [COL2 ...]"] [-n|--namespace NAMESPACE] -t|--table TABLE [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... -u|--update LINE'
+    #printf 'Usage: %q %s\n' "$(basename "$1")" '... -d|--delete KEY'
+    #printf 'Usage: %q %s\n' "$(basename "$1")" '... -D|--drop'
+    #printf 'Usage: %q %s\n' "$(basename "$1")" '... -e|--each COMMAND'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... -q|--query KEY [-f|--fallback FALLBACK-KEY]'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 'Try %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Records and retrieves individual LINEs based on a single KEY lookup inside a
+TABLE [within NAMESPACE], using simple tab-separated data files as storage.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    cat <<HELPTEXT
+    --schema|-s "KEY COL1 [...]"Optional database schema; will be included as a
+				commented first line in the data file.
+    --namespace|-n NAMESPACE	Optional application / use case for this tool's
+				use. Determines the configuration directory.
+    --table|-t TABLE		Category in the context of the application.
+				Determines the configuration file.
+    --update|-u LINE		Record LINE, which must consist of a KEY + tab +
+				optional additional columns. An existing line
+				with the same KEY is overwritten, else it is
+				appended.
+    --query|-q KEY		Query whether a record for KEY exists and return
+				it.
+    --fallback|-f FALLBACK-KEY
+				Lookup FALLBACK-KEY instead if KEY hasn't been
+				recorded.
+EXIT STATUS:
+    0	Complete success.
+    1	Failed to read / write the table file.
+    2	Bad invocation, wrong or missing command-line arguments.
+    3	Internal error or failed assertion.
+    4	The queried KEY (nor FALLBACK-KEY if given) does not exist.
+
+Example:
+HELPTEXT
+printf '%q %s\n' "$(basename "$1")" '--schema "WINDOWID TIMESTAMP" --table creationTimes --update "$WINDOWID	$(date +%s)"'
+printf '%q %s\n' "$(basename "$1")" '--table creationTimes --query 123456'
+}
+
+containsTab()
+{
+    [[ "${1?}" =~ \	 ]]
+}
+multipleActionsError()
+{
+    echo >&2 "ERROR: Only one of --update, --query allowed."
+    echo >&2
+    printShortUsage "$1" >&2
+    exit 2
+}
+typeset -a schema=(KEY COLUMN ...)
+namespace=
+table=
+line=
+key=
+fallbackKey=
+action=
+while [ $# -ne 0 ]
+do
+    case "$1" in
+	--help|-h|-\?)	shift; printUsage "$0"; exit 0;;
+	--schema|-s)	shift; schema=($1); shift
+			if [ ${#schema[@]} -eq 0 ]; then
+			    echo >&2 'ERROR: No schema passed.'
+			    echo >&2
+			    printShortUsage "$0" >&2
+			    exit 2
+			fi
+			;;
+	--namespace|-n)	shift; namespace="$1"; shift;;
+	--table|-t)	shift; table="$1"; shift;;
+	--fallback|-f)	shift; fallbackKey="$1"; shift;;
+	--update|-u)	shift; [ "$action" ] && multipleActionsError "$0"; action='update'; line="$1"; shift
+			containsTab "$line" || line="${line}	"   # Need at least one tab separator.
+			;;
+	--query|-q)	shift; [ "$action" ] && multipleActionsError "$0"; action='query'; key="$1"; shift
+			if containsTab "$key"; then
+			    echo >&2 'ERROR: KEY cannot contain tab characters.'
+			    echo >&2
+			    printShortUsage "$0" >&2
+			    exit 2
+			fi
+			;;
+	--)		shift; break;;
+	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
+	*)		break;;
+    esac
+done
+if [ $# -gt 0 ]; then
+    printShortUsage "$0" >&2
+    exit 2
+elif [ ! "$table" ]; then
+    echo >&2 'ERROR: No TABLE passed.'
+    echo >&2
+    printShortUsage "$0" >&2
+    exit 2
+fi
+
+
+readTable()
+{
+    [ -e "$TABLE_FILESPEC" ] || return 1
+
+    if [ "$fallbackKey" ]; then
+	# Get the $key line, with fallback to $fallbackKey
+	local literalFallbackPattern="$(printf %s "$fallbackKey" | sed -e 's/[][\$*.^/]/\\&/g')"
+	local line="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e "/^${literalKeyPattern}\\t\\|^${literalFallbackPattern}\\t/H" -e "\${ g; s/^\\n//; s/^${literalFallbackPattern}\\t.*\\n//; s/\\n${literalFallbackPattern}\\t.*\$//; /./p }" "$TABLE_FILESPEC")"
+    else
+	local line="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e "/^${literalKeyPattern}\\t/p" "$TABLE_FILESPEC")"
+    fi
+    [ "$line" ] || return 4
+    printf '%s\n' "$line"
+}
+
+
+literalKeyPattern="$(printf %s "$key" | sed -e 's/[][\$*.^/]/\\&/g')"
+typeset -a IGNORE_HEADER_LINE_SED_ARGS=(-e '1{ /^#/b }')
+
+readonly CONFIG_DIRSPEC="${XDG_CONFIG_HOME:-$HOME/.config}${namespace:+/}$namespace"
+[ -d "$CONFIG_DIRSPEC" ] || mkdir -p -- "$CONFIG_DIRSPEC" || { printf >&2 'ERROR: Could not initialize database store at %s!\n' "$CONFIG_DIRSPEC"; exit 1; }
+readonly TABLE_FILESPEC="${CONFIG_DIRSPEC}/$table"
+
+case "$action" in
+    update)
+	;;
+    query)
+	readTable
+	;;
+    *)
+	printf >&2 'ASSERT: Invalid action: %s\n' "$action"
+	exit 2
+	;;
+esac
