@@ -109,6 +109,11 @@ done
 if [ $# -gt 0 ]; then
     printShortUsage "$0" >&2
     exit 2
+elif [ ! "$action" ]; then
+    echo >&2 "ERROR: No action passed."
+    echo >&2
+    printShortUsage "$0" >&2
+    exit 2
 elif [ ! "$table" ]; then
     echo >&2 'ERROR: No TABLE passed.'
     echo >&2
