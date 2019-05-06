@@ -13,6 +13,11 @@ initialize_table()
     cp -f "${BATS_TEST_DIRNAME}/databases/${3:?}" "${XDG_CONFIG_HOME}/${1:?}"
 }
 
+get_row_number()
+{
+    wc -l "${XDG_CONFIG_HOME}/${1:?}" | awk '{ print $1; }'
+}
+
 dump_table()
 {
     sed >&3 -e 's/^/#/' -- "${XDG_CONFIG_HOME}/${1:?}"
