@@ -2,6 +2,11 @@
 
 export XDG_CONFIG_HOME="$BATS_TMPDIR"
 
+clean_table()
+{
+    rm -f "${XDG_CONFIG_HOME}/${1:?}"
+}
+
 initialize_table()
 {
     [ "$2" = from ] || exit 2

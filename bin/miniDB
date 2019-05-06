@@ -135,9 +135,9 @@ query()
     if [ "$fallbackKey" ]; then
 	# Get the $key line, with fallback to $fallbackKey
 	local literalFallbackPattern="$(printf %s "$fallbackKey" | literalPattern)"
-	local line="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e "/^${literalKeyPattern}\\t\\|^${literalFallbackPattern}\\t/H" -e "\${ g; s/^\\n//; s/^${literalFallbackPattern}\\t.*\\n//; s/\\n${literalFallbackPattern}\\t.*\$//; /./p }" "$TABLE_FILESPEC")"
+	local line="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e "/^${literalKeyPattern}\\t\\|^${literalFallbackPattern}\\t/H" -e "\${ g; s/^\\n//; s/^${literalFallbackPattern}\\t.*\\n//; s/\\n${literalFallbackPattern}\\t.*\$//; /./p }" -e ':skipHeader' "$TABLE_FILESPEC")"
     else
-	local line="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e "/^${literalKeyPattern}\\t/p" "$TABLE_FILESPEC")"
+	local line="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e "/^${literalKeyPattern}\\t/p" -e ':skipHeader' "$TABLE_FILESPEC")"
     fi
     [ "$line" ] || return 4
     printf '%s\n' "$line"
@@ -166,12 +166,13 @@ update()
 	"${IGNORE_HEADER_LINE_SED_ARGS[@]}" \
 	-e "/^${literalKeyPattern}\\t/h" \
 	-e "/^${literalKeyPattern}\\t/c$line"  \
+	-e ':skipHeader' \
 	-e '${ x; /./{ x; b; }; x; }' \
 	-e "\$a$line" \
 	"$TABLE_FILESPEC" || return 1
 }
 
-typeset -a IGNORE_HEADER_LINE_SED_ARGS=(-e '1{ /^#/b }')
+typeset -a IGNORE_HEADER_LINE_SED_ARGS=(-e '1{ /^#/b skipHeader }')
 
 readonly CONFIG_DIRSPEC="${XDG_CONFIG_HOME:-$HOME/.config}${namespace:+/}$namespace"
 [ -d "$CONFIG_DIRSPEC" ] || mkdir -p -- "$CONFIG_DIRSPEC" || { printf >&2 'ERROR: Could not initialize database store at %s!\n' "$CONFIG_DIRSPEC"; exit 1; }
