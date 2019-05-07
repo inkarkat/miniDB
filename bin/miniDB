@@ -44,11 +44,13 @@ HELPDESCRIPTION
     --fallback|-f FALLBACK-KEY
 				Lookup FALLBACK-KEY instead if KEY hasn't been
 				recorded.
-    --columns|-c		Instead of returning the entire record, just return:
+    --columns|-c		Instead of returning the entire record, just
+				return:
 				* non-key columns
 				COL1 [...] columns that match the passed schema
 					   (in the order given)
-				N [...]	   columns with the passed indices
+				N [...]	   columns with the passed indices,
+					   starting with 0 for KEY, 1 for COL1
     --as-escaped-lines		Instead of returning the record in the original
 				format, return each column as a separate line.
 				Newlines and backslashes contained within a
@@ -70,7 +72,7 @@ printf '%q %s\n' "$(basename "$1")" '--table creationTimes --query 123456'
 
 containsTab()
 {
-    [[ "${1?}" =~ \	 ]]
+    [[ "${1?}" =~ $'\t' ]]
 }
 multipleActionsError()
 {
@@ -105,7 +107,7 @@ do
 	--table|-t)	shift; table="$1"; shift;;
 	--fallback|-f)	shift; fallbackKey="$1"; shift;;
 	--update|-u)	shift; [ "$action" ] && multipleActionsError "$0"; action='update'; line="$1"; shift
-			containsTab "$line" || line="${line}	"   # Need at least one tab separator.
+			containsTab "$line" || line="${line}$'\t'"   # Need at least one tab separator.
 			;;
 	--query|-q)	shift; [ "$action" ] && multipleActionsError "$0"; action='query'; key="$1"; shift
 			if containsTab "$key"; then
@@ -177,7 +179,20 @@ query()
     fi
     [ "$line" ] || return 4
 
-    [ "$isOmitKey" ] && line="${line#*	}"
+    if [ "$isOmitKey" ]; then
+	line="${line#*$'\t'}"
+    elif [ ${#queriedColumns[@]} -gt 0 ]; then
+	local IFS=$'\t'
+	typeset -a columns=($line)
+	local newLine=
+	local separator=
+	for c in "${queriedColumns[@]}"
+	do
+	    newLine="${newLine}${separator}${columns[$c]}"
+	    separator=$'\t'
+	done
+	line="$newLine"
+    fi
 
     echo -e "${line/#-/\\x2d}"
 }
