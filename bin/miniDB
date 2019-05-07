@@ -176,6 +176,9 @@ query()
 	local line="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e "/^${literalKeyPattern}\\t/p" -e ':skipHeader' "$TABLE_FILESPEC")"
     fi
     [ "$line" ] || return 4
+
+    [ "$isOmitKey" ] && line="${line#*	}"
+
     echo -e "${line/#-/\\x2d}"
 }
 
