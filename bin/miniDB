@@ -1,4 +1,5 @@
 #!/bin/bash
+shopt -qs extglob
 
 printShortUsage()
 {
@@ -149,6 +150,33 @@ elif [ ! "$table" ]; then
     echo >&2
     printShortUsage "$0" >&2
     exit 2
+fi
+if [ ${#schema[@]} -gt 0 -a ${#queriedColumns[@]} -gt 0 ]; then
+    # Translate any queried column names into the corresponding indices, using
+    # the provided schema.
+
+    typeset -A schemaToIndex=()
+    for ((i = 0; i < ${#schema[@]}; i++))
+    do
+	schemaToIndex["${schema[$i]}"]="$i"
+    done
+
+    for ((i = 0; i < ${#queriedColumns[@]}; i++))
+    do
+	case "${queriedColumns[$i]}" in
+	    +([0-9]))
+		;;
+	    *)
+		index="${schemaToIndex["${queriedColumns[$i]}"]}"
+		if [ "$index" ]; then
+		    queriedColumns[$i]="$index"
+		else
+		    printf >&2 'ERROR: Unknown column %s; not an index nor named in schema %s.\n' "${queriedColumns[$i]}" "${schema[*]}"
+		    exit 2
+		fi
+		;;
+	esac
+    done
 fi
 
 
