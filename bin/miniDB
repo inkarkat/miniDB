@@ -83,7 +83,7 @@ multipleActionsError()
     exit 2
 }
 readonly DEFAULT_SCHEMA='KEY COLUMN ...'
-typeset -a schema=($DEFAULT_SCHEMA)
+typeset -a schema=()
 namespace=
 table=
 line=
@@ -174,18 +174,26 @@ translateColumnNamesToIndices()
 		index="${schemaToIndex["${queriedColumns[$i]}"]}"
 		if [ "$index" ]; then
 		    queriedColumns[$i]="$index"
+		elif [ ${#schema[@]} -eq 0 ]; then
+		    return 1
 		else
 		    printf >&2 'ERROR: Unknown column %s; not an index nor named in schema %s.\n' "${queriedColumns[$i]}" "${schema[*]}"
-		    return 2
+		    exit 2
 		fi
 		;;
 	esac
     done
 }
-if [ ${#schema[@]} -gt 0 -a ${#queriedColumns[@]} -gt 0 ]; then
-    translateColumnNamesToIndices || exit $?
-fi
+loadSchemaFromTable()
+{
+    [ -e "$TABLE_FILESPEC" ] || return 1
+    local schemaLine="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e b -e ':skipHeader' -e 'p' "$TABLE_FILESPEC")"
+    [ "$schemaLine" ] || return 1
 
+    schema=(${schemaLine#\# })
+    typeset -a defaultSchema=($DEFAULT_SCHEMA)
+    [ ${#schema[@]} -gt 0 -a "${schema[*]}" != "${defaultSchema[*]}" ]
+}
 
 literalPattern()
 {
@@ -234,6 +242,7 @@ query()
 
 initializeTable()
 {
+    [ ${#schema[@]} -eq 0 ] && schema=($DEFAULT_SCHEMA)
     local IFS=$'\t'
     printf > "$TABLE_FILESPEC" '# %s\n' "${schema[*]}"
 }
@@ -270,5 +279,15 @@ typeset -a IGNORE_HEADER_LINE_SED_ARGS=(-e '1{ /^#/b skipHeader }')
 readonly CONFIG_DIRSPEC="${XDG_CONFIG_HOME:-$HOME/.config}${namespace:+/}$namespace"
 [ -d "$CONFIG_DIRSPEC" ] || mkdir -p -- "$CONFIG_DIRSPEC" || { printf >&2 'ERROR: Could not initialize database store at %s!\n' "$CONFIG_DIRSPEC"; exit 1; }
 readonly TABLE_FILESPEC="${CONFIG_DIRSPEC}/$table"
+
+if [ ${#queriedColumns[@]} -gt 0 ]; then
+    if ! translateColumnNamesToIndices; then
+	if ! loadSchemaFromTable; then
+	    printf >&2 'ERROR: Cannot resolve named columns from the table %s, as no schema is defined there. Use indices or pass a --schema SCHEMA.\n' "${namespace}${namespace:+/}${table}"
+	    exit 2
+	fi
+	translateColumnNamesToIndices
+    fi
+fi
 
 "$action"
