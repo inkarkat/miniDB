@@ -5,11 +5,11 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--schema "KEY COL1 [COL2 ...]"] [-n|--namespace NAMESPACE] -t|--table TABLE [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... -u|--update LINE'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... -u|--update RECORD'
     #printf 'Usage: %q %s\n' "$(basename "$1")" '... -d|--delete KEY'
     #printf 'Usage: %q %s\n' "$(basename "$1")" '... -D|--drop'
     #printf 'Usage: %q %s\n' "$(basename "$1")" '... -e|--each COMMAND'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... -q|--query KEY [-f|--fallback FALLBACK-KEY]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... -q|--query KEY [-f|--fallback FALLBACK-KEY] [-c|--columns *|COL1 [...]|N [...]] [--as-escaped-lines]'
 }
 printUsage()
 {
@@ -35,15 +35,26 @@ HELPDESCRIPTION
 				use. Determines the configuration directory.
     --table|-t TABLE		Category in the context of the application.
 				Determines the configuration file.
-    --update|-u LINE		Record LINE, which must consist of a KEY + tab +
-				optional additional columns. An existing line
-				with the same KEY is overwritten, else it is
-				appended.
+    --update|-u RECORD		Record RECORD, which must consist of a KEY + tab
+				+ optional additional columns. An existing
+				record with the same KEY is overwritten, else it
+				is appended.
     --query|-q KEY		Query whether a record for KEY exists and return
 				it.
     --fallback|-f FALLBACK-KEY
 				Lookup FALLBACK-KEY instead if KEY hasn't been
 				recorded.
+    --columns|-c		Instead of returning the entire record, just return:
+				* non-key columns
+				COL1 [...] columns that match the passed schema
+					   (in the order given)
+				N [...]	   columns with the passed indices
+    --as-escaped-lines		Instead of returning the record in the original
+				format, return each column as a separate line.
+				Newlines and backslashes contained within a
+				column will be escaped as \\n and \\\\,
+				respectively, so that newlines don't interfere
+				with the line structure and parsing.
 EXIT STATUS:
     0	Complete success.
     1	Failed to read / write the table file.
@@ -75,6 +86,9 @@ line=
 key=
 fallbackKey=
 action=
+typeset -a queriedColumns=()
+isOmitKey=
+isAsEscapedLines=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -100,6 +114,20 @@ do
 			    printShortUsage "$0" >&2
 			    exit 2
 			fi
+			;;
+	--columns|-c)	shift
+			if [ "$1" = '*' ]; then
+			    isOmitKey=t
+			else
+			    queriedColumns=($1)
+			    if [ ${#queriedColumns[@]} -eq 0 ]; then
+				echo >&2 'ERROR: No columns passed.'
+				echo >&2
+				printShortUsage "$0" >&2
+				exit 2
+			    fi
+			fi
+			shift
 			;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
