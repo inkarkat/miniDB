@@ -82,7 +82,8 @@ multipleActionsError()
     printShortUsage "$1" >&2
     exit 2
 }
-typeset -a schema=(KEY COLUMN ...)
+readonly DEFAULT_SCHEMA='KEY COLUMN ...'
+typeset -a schema=($DEFAULT_SCHEMA)
 namespace=
 table=
 line=
@@ -151,7 +152,10 @@ elif [ ! "$table" ]; then
     printShortUsage "$0" >&2
     exit 2
 fi
-if [ ${#schema[@]} -gt 0 -a ${#queriedColumns[@]} -gt 0 ]; then
+
+
+translateColumnNamesToIndices()
+{
     # Translate any queried column names into the corresponding indices, using
     # the provided schema.
 
@@ -172,11 +176,14 @@ if [ ${#schema[@]} -gt 0 -a ${#queriedColumns[@]} -gt 0 ]; then
 		    queriedColumns[$i]="$index"
 		else
 		    printf >&2 'ERROR: Unknown column %s; not an index nor named in schema %s.\n' "${queriedColumns[$i]}" "${schema[*]}"
-		    exit 2
+		    return 2
 		fi
 		;;
 	esac
     done
+}
+if [ ${#schema[@]} -gt 0 -a ${#queriedColumns[@]} -gt 0 ]; then
+    translateColumnNamesToIndices || exit $?
 fi
 
 
