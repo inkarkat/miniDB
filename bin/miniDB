@@ -10,7 +10,7 @@ printShortUsage()
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -u|--update RECORD'
     #printf 'Usage: %q %s\n' "$(basename "$1")" '... -d|--delete KEY'
     #printf 'Usage: %q %s\n' "$(basename "$1")" '... -D|--drop'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... -e|--each "COMMANDLINE" [-e|--each ...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... -e|--each "COMMANDLINE" [-e|--each ...] [--before "COMMANDLINE" [--before ...]] [--after "COMMANDLINE" [--after ...]]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -q|--query KEY [-f|--fallback FALLBACK-KEY] [-c|--columns *|COL1 [...]|N [...]] [--as-escaped-lines]'
     printf 'Usage: %q -x|--unescape "$(%q %s)"\n' "$(basename "$1")" "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-escaped-lines'
     printf 'Usage: %q %s | %q -x|--unescape [-]\n' "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-escaped-lines' "$(basename "$1")"
@@ -75,6 +75,12 @@ HELPDESCRIPTION
 				via --schema now.
 				If there are multiple COMMANDLINEs, each will be
 				a separate pass over the table.
+    --before COMMANDLINE	Execute COMMANDLINE before any iteration; this
+				can be used to initialize some variables used
+				within the iteration.
+    --after COMMANDLINE		Execute COMMANDLINE after all iterations; this
+				can be used to use accumulated iteration
+				results.
 EXIT STATUS:
     0	Complete success.
     1	Failed to read / write the table file.
@@ -111,6 +117,8 @@ typeset -a queriedColumns=()
 isOmitKey=
 isAsEscapedLines=
 typeset -a commandLines=()
+typeset -a beforeCommands=()
+typeset -a afterCommands=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -164,6 +172,8 @@ do
 			table='dummy'	# Need to set this as it's mandatory for all other actions, but not used for unescape.
 			;;
 	--each|-e)	shift; [ "$action" -a "$action" != 'each' ] && multipleActionsError "$0"; action='each'; commandLines+=("$1"); shift;;
+	--before)	shift; beforeCommands+=(${beforeCommands:+;} "$1"); shift;;
+	--after)	shift; afterCommands+=(${afterCommands:+;} "$1"); shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -332,10 +342,12 @@ each()
 	fi
     fi
 
-    for cl in "${commandLines[@]}"
-    do
-	iterateOverRecords "$cl"
-    done
+    eval "${beforeCommands[@]}"
+	for cl in "${commandLines[@]}"
+	do
+	    iterateOverRecords "$cl"
+	done
+    eval "${afterCommands[@]}"
 }
 
 
