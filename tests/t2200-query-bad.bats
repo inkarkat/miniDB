@@ -7,3 +7,9 @@ load canned_databases
     [ $status -eq 2 ]
     [ "${lines[0]}" = 'ERROR: KEY cannot contain tab characters.' ]
 }
+
+@test "a query on a non-existing database fails" {
+    run miniDB --table doesNotExist --query whatever
+    [ $status -eq 1 ]
+    [ "$output" = "" ]
+}

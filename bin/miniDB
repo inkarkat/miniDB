@@ -1,5 +1,5 @@
 #!/bin/bash
-set -f
+set -o noglob
 shopt -qs extglob
 
 printShortUsage()
@@ -10,7 +10,7 @@ printShortUsage()
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -u|--update RECORD'
     #printf 'Usage: %q %s\n' "$(basename "$1")" '... -d|--delete KEY'
     #printf 'Usage: %q %s\n' "$(basename "$1")" '... -D|--drop'
-    #printf 'Usage: %q %s\n' "$(basename "$1")" '... -e|--each COMMAND'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... -e|--each "COMMANDLINE" [-e|--each ...] [--before "COMMANDLINE" [--before ...]] [--after "COMMANDLINE" [--after ...]]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -q|--query KEY [-f|--fallback FALLBACK-KEY] [-c|--columns *|COL1 [...]|N [...]] [--as-escaped-lines]'
     printf 'Usage: %q -x|--unescape "$(%q %s)"\n' "$(basename "$1")" "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-escaped-lines'
     printf 'Usage: %q %s | %q -x|--unescape [-]\n' "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-escaped-lines' "$(basename "$1")"
@@ -66,6 +66,21 @@ HELPDESCRIPTION
 				original text (of a single column; you could
 				pass multiple columns, but then the column
 				borders would be lost).
+    --each COMMANDLINE		Invoke COMMANDLINE once for each record. Values
+				for the current record's columns are available
+				in shell variables that correspond to the
+				table's schema. If you didn't define a schema on
+				table creation you can refer to columns via the
+				COL array (KEY is 0), or explicitly provide one
+				via --schema now.
+				If there are multiple COMMANDLINEs, each will be
+				a separate pass over the table.
+    --before COMMANDLINE	Execute COMMANDLINE before any iteration; this
+				can be used to initialize some variables used
+				within the iteration.
+    --after COMMANDLINE		Execute COMMANDLINE after all iterations; this
+				can be used to use accumulated iteration
+				results.
 EXIT STATUS:
     0	Complete success.
     1	Failed to read / write the table file.
@@ -101,6 +116,9 @@ action=
 typeset -a queriedColumns=()
 isOmitKey=
 isAsEscapedLines=
+typeset -a commandLines=()
+typeset -a beforeCommands=()
+typeset -a afterCommands=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -153,6 +171,9 @@ do
 			shift
 			table='dummy'	# Need to set this as it's mandatory for all other actions, but not used for unescape.
 			;;
+	--each|-e)	shift; [ "$action" -a "$action" != 'each' ] && multipleActionsError "$0"; action='each'; commandLines+=("$1"); shift;;
+	--before)	shift; beforeCommands+=(${beforeCommands:+;} "$1"); shift;;
+	--after)	shift; afterCommands+=(${afterCommands:+;} "$1"); shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -207,7 +228,7 @@ translateColumnNamesToIndices()
 loadSchemaFromTable()
 {
     [ -e "$TABLE_FILESPEC" ] || return 1
-    local schemaLine="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e b -e ':skipHeader' -e 'p' "$TABLE_FILESPEC")"
+    local schemaLine="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e b -e ':skipHeader' -e 'p' -- "$TABLE_FILESPEC")"
     [ "$schemaLine" ] || return 1
 
     schema=(${schemaLine#\# })
@@ -241,9 +262,9 @@ query()
 	# Get the $key line, with fallback to $fallbackKey
 	[ "${fallbackKey/[$'\n'\\]/}" = "$fallbackKey" ] || fallbackKey="$(escapeNewline "$fallbackKey")"
 	local literalFallbackPattern="$(printf %s "$fallbackKey" | literalPattern)"
-	local line="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e "/^${literalKeyPattern}\\t\\|^${literalFallbackPattern}\\t/H" -e "\${ g; s/^\\n//; s/^${literalFallbackPattern}\\t.*\\n//; s/\\n${literalFallbackPattern}\\t.*\$//; /./p }" -e ':skipHeader' "$TABLE_FILESPEC")"
+	local line="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e "/^${literalKeyPattern}\\t\\|^${literalFallbackPattern}\\t/H" -e "\${ g; s/^\\n//; s/^${literalFallbackPattern}\\t.*\\n//; s/\\n${literalFallbackPattern}\\t.*\$//; /./p }" -e ':skipHeader' -- "$TABLE_FILESPEC")"
     else
-	local line="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e "/^${literalKeyPattern}\\t/p" -e ':skipHeader' "$TABLE_FILESPEC")"
+	local line="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e "/^${literalKeyPattern}\\t/p" -e ':skipHeader' -- "$TABLE_FILESPEC")"
     fi
     [ "$line" ] || return 4
 
@@ -300,8 +321,35 @@ update()
 	-e ':skipHeader' \
 	-e '${ x; /./{ x; b; }; x; }' \
 	-e "\$a${line//\\/\\\\}" \
-	"$TABLE_FILESPEC" || return 1
+	-- "$TABLE_FILESPEC" || return 1
 }
+
+iterateOverRecords()
+{
+    local commandLine="${1?}"; shift
+    while IFS=$'\t' read -r "${schema[@]}"
+    do
+	eval "$commandLine"
+    done < <(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e p -e ':skipHeader' -- "$TABLE_FILESPEC")
+}
+each()
+{
+    [ -e "$TABLE_FILESPEC" ] || return 1
+
+    if [ ${#schema[@]} -eq 0 ]; then
+	if ! loadSchemaFromTable; then
+	    schema=(-a COL)
+	fi
+    fi
+
+    eval "${beforeCommands[@]}"
+	for cl in "${commandLines[@]}"
+	do
+	    iterateOverRecords "$cl"
+	done
+    eval "${afterCommands[@]}"
+}
+
 
 typeset -a IGNORE_HEADER_LINE_SED_ARGS=(-e '1{ /^#/b skipHeader }')
 
