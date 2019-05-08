@@ -1,4 +1,5 @@
 #!/bin/bash
+set -f
 shopt -qs extglob
 
 printShortUsage()
@@ -133,6 +134,8 @@ do
 			fi
 			shift
 			;;
+	--as-escaped-lines)
+			shift; isAsEscapedLines=t;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -206,6 +209,7 @@ escapeNewline()
 
 query()
 {
+    local IFS=$'\t'
     [ -e "$TABLE_FILESPEC" ] || return 1
 
     # Escape newlines and backslashes.
@@ -225,7 +229,6 @@ query()
     if [ "$isOmitKey" ]; then
 	line="${line#*$'\t'}"
     elif [ ${#queriedColumns[@]} -gt 0 ]; then
-	local IFS=$'\t'
 	typeset -a columns=($line)
 	local newLine=
 	local separator=
@@ -237,7 +240,12 @@ query()
 	line="$newLine"
     fi
 
-    echo -e "${line/#-/\\x2d}"
+    if [ "$isAsEscapedLines" ]; then
+	typeset -a columns=($line)
+	printf '%s\n' "${columns[@]}"
+    else
+	echo -e "${line/#-/\\x2d}"
+    fi
 }
 
 initializeTable()
