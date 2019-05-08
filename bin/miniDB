@@ -12,6 +12,8 @@ printShortUsage()
     #printf 'Usage: %q %s\n' "$(basename "$1")" '... -D|--drop'
     #printf 'Usage: %q %s\n' "$(basename "$1")" '... -e|--each COMMAND'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -q|--query KEY [-f|--fallback FALLBACK-KEY] [-c|--columns *|COL1 [...]|N [...]] [--as-escaped-lines]'
+    printf 'Usage: %q -x|--unescape "$(%q %s)"\n' "$(basename "$1")" "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-escaped-lines'
+    printf 'Usage: %q %s | %q -x|--unescape [-]\n' "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-escaped-lines' "$(basename "$1")"
 }
 printUsage()
 {
@@ -59,6 +61,11 @@ HELPDESCRIPTION
 				column will be escaped as \\n and \\\\,
 				respectively, so that newlines don't interfere
 				with the line structure and parsing.
+    --unescape|-x OUTPUT|[-]	Interpret escaped backslashes and newlines from
+				a query with --as-escaped-lines into the
+				original text (of a single column; you could
+				pass multiple columns, but then the column
+				borders would be lost).
 EXIT STATUS:
     0	Complete success.
     1	Failed to read / write the table file.
@@ -136,6 +143,16 @@ do
 			;;
 	--as-escaped-lines)
 			shift; isAsEscapedLines=t;;
+	--unescape|-x)	shift; [ "$action" ] && multipleActionsError "$0"; action='unescape'
+
+			if [ $# -eq 0 -o "$1" = '-' ]; then
+			    line="$(< /dev/stdin)"
+			else
+			    line="${1?}"
+			fi
+			shift
+			table='dummy'	# Need to set this as it's mandatory for all other actions, but not used for unescape.
+			;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -206,6 +223,10 @@ escapeNewline()
 {
     sed ':a; s/\\/\\\\/g; x; G; 1s/\n//; s/\n/\\n/; h; N; s/.*\n//; ta' <<<"${1:?}"
 }
+unescape()
+{
+    echo -e "${line/#-/\\x2d}"
+}
 
 query()
 {
@@ -244,7 +265,7 @@ query()
 	typeset -a columns=($line)
 	printf '%s\n' "${columns[@]}"
     else
-	echo -e "${line/#-/\\x2d}"
+	unescape "$line"
     fi
 }
 
