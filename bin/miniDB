@@ -70,10 +70,11 @@ HELPDESCRIPTION
 				for the current record's columns are available
 				in shell variables that correspond to the
 				table's schema. If you didn't define a schema on
-				table creation you need to explicitly provide
-				one via --schema now. If there are multiple
-				COMMANDLINEs, each will be a separate pass over
-				the table.
+				table creation you can refer to columns via the
+				COL array (KEY is 0), or explicitly provide one
+				via --schema now.
+				If there are multiple COMMANDLINEs, each will be
+				a separate pass over the table.
 EXIT STATUS:
     0	Complete success.
     1	Failed to read / write the table file.
@@ -324,6 +325,13 @@ iterateOverRecords()
 each()
 {
     [ -e "$TABLE_FILESPEC" ] || return 1
+
+    if [ ${#schema[@]} -eq 0 ]; then
+	if ! loadSchemaFromTable; then
+	    schema=(-a COL)
+	fi
+    fi
+
     for cl in "${commandLines[@]}"
     do
 	iterateOverRecords "$cl"
