@@ -217,7 +217,7 @@ translateColumnNamesToIndices()
 loadSchemaFromTable()
 {
     [ -e "$TABLE_FILESPEC" ] || return 1
-    local schemaLine="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e b -e ':skipHeader' -e 'p' "$TABLE_FILESPEC")"
+    local schemaLine="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e b -e ':skipHeader' -e 'p' -- "$TABLE_FILESPEC")"
     [ "$schemaLine" ] || return 1
 
     schema=(${schemaLine#\# })
@@ -251,9 +251,9 @@ query()
 	# Get the $key line, with fallback to $fallbackKey
 	[ "${fallbackKey/[$'\n'\\]/}" = "$fallbackKey" ] || fallbackKey="$(escapeNewline "$fallbackKey")"
 	local literalFallbackPattern="$(printf %s "$fallbackKey" | literalPattern)"
-	local line="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e "/^${literalKeyPattern}\\t\\|^${literalFallbackPattern}\\t/H" -e "\${ g; s/^\\n//; s/^${literalFallbackPattern}\\t.*\\n//; s/\\n${literalFallbackPattern}\\t.*\$//; /./p }" -e ':skipHeader' "$TABLE_FILESPEC")"
+	local line="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e "/^${literalKeyPattern}\\t\\|^${literalFallbackPattern}\\t/H" -e "\${ g; s/^\\n//; s/^${literalFallbackPattern}\\t.*\\n//; s/\\n${literalFallbackPattern}\\t.*\$//; /./p }" -e ':skipHeader' -- "$TABLE_FILESPEC")"
     else
-	local line="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e "/^${literalKeyPattern}\\t/p" -e ':skipHeader' "$TABLE_FILESPEC")"
+	local line="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e "/^${literalKeyPattern}\\t/p" -e ':skipHeader' -- "$TABLE_FILESPEC")"
     fi
     [ "$line" ] || return 4
 
@@ -310,7 +310,7 @@ update()
 	-e ':skipHeader' \
 	-e '${ x; /./{ x; b; }; x; }' \
 	-e "\$a${line//\\/\\\\}" \
-	"$TABLE_FILESPEC" || return 1
+	-- "$TABLE_FILESPEC" || return 1
 }
 
 each()
