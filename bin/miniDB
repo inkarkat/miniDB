@@ -1,15 +1,19 @@
 #!/bin/bash
+set -f
+shopt -qs extglob
 
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--schema "KEY COL1 [COL2 ...]"] [-n|--namespace NAMESPACE] -t|--table TABLE [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... -u|--update LINE'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... -u|--update RECORD'
     #printf 'Usage: %q %s\n' "$(basename "$1")" '... -d|--delete KEY'
     #printf 'Usage: %q %s\n' "$(basename "$1")" '... -D|--drop'
     #printf 'Usage: %q %s\n' "$(basename "$1")" '... -e|--each COMMAND'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... -q|--query KEY [-f|--fallback FALLBACK-KEY]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... -q|--query KEY [-f|--fallback FALLBACK-KEY] [-c|--columns *|COL1 [...]|N [...]] [--as-escaped-lines]'
+    printf 'Usage: %q -x|--unescape "$(%q %s)"\n' "$(basename "$1")" "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-escaped-lines'
+    printf 'Usage: %q %s | %q -x|--unescape [-]\n' "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-escaped-lines' "$(basename "$1")"
 }
 printUsage()
 {
@@ -35,15 +39,33 @@ HELPDESCRIPTION
 				use. Determines the configuration directory.
     --table|-t TABLE		Category in the context of the application.
 				Determines the configuration file.
-    --update|-u LINE		Record LINE, which must consist of a KEY + tab +
-				optional additional columns. An existing line
-				with the same KEY is overwritten, else it is
-				appended.
+    --update|-u RECORD		Record RECORD, which must consist of a KEY + tab
+				+ optional additional columns. An existing
+				record with the same KEY is overwritten, else it
+				is appended.
     --query|-q KEY		Query whether a record for KEY exists and return
 				it.
     --fallback|-f FALLBACK-KEY
 				Lookup FALLBACK-KEY instead if KEY hasn't been
 				recorded.
+    --columns|-c		Instead of returning the entire record, just
+				return:
+				* non-key columns
+				COL1 [...] columns that match the passed schema
+					   (in the order given)
+				N [...]	   columns with the passed indices,
+					   starting with 0 for KEY, 1 for COL1
+    --as-escaped-lines		Instead of returning the record in the original
+				format, return each column as a separate line.
+				Newlines and backslashes contained within a
+				column will be escaped as \\n and \\\\,
+				respectively, so that newlines don't interfere
+				with the line structure and parsing.
+    --unescape|-x OUTPUT|[-]	Interpret escaped backslashes and newlines from
+				a query with --as-escaped-lines into the
+				original text (of a single column; you could
+				pass multiple columns, but then the column
+				borders would be lost).
 EXIT STATUS:
     0	Complete success.
     1	Failed to read / write the table file.
@@ -59,7 +81,7 @@ printf '%q %s\n' "$(basename "$1")" '--table creationTimes --query 123456'
 
 containsTab()
 {
-    [[ "${1?}" =~ \	 ]]
+    [[ "${1?}" =~ $'\t' ]]
 }
 multipleActionsError()
 {
@@ -68,13 +90,17 @@ multipleActionsError()
     printShortUsage "$1" >&2
     exit 2
 }
-typeset -a schema=(KEY COLUMN ...)
+readonly DEFAULT_SCHEMA='KEY COLUMN ...'
+typeset -a schema=()
 namespace=
 table=
 line=
 key=
 fallbackKey=
 action=
+typeset -a queriedColumns=()
+isOmitKey=
+isAsEscapedLines=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -91,7 +117,7 @@ do
 	--table|-t)	shift; table="$1"; shift;;
 	--fallback|-f)	shift; fallbackKey="$1"; shift;;
 	--update|-u)	shift; [ "$action" ] && multipleActionsError "$0"; action='update'; line="$1"; shift
-			containsTab "$line" || line="${line}	"   # Need at least one tab separator.
+			containsTab "$line" || line="${line}$'\t'"   # Need at least one tab separator.
 			;;
 	--query|-q)	shift; [ "$action" ] && multipleActionsError "$0"; action='query'; key="$1"; shift
 			if containsTab "$key"; then
@@ -100,6 +126,32 @@ do
 			    printShortUsage "$0" >&2
 			    exit 2
 			fi
+			;;
+	--columns|-c)	shift
+			if [ "$1" = '*' ]; then
+			    isOmitKey=t
+			else
+			    queriedColumns=($1)
+			    if [ ${#queriedColumns[@]} -eq 0 ]; then
+				echo >&2 'ERROR: No columns passed.'
+				echo >&2
+				printShortUsage "$0" >&2
+				exit 2
+			    fi
+			fi
+			shift
+			;;
+	--as-escaped-lines)
+			shift; isAsEscapedLines=t;;
+	--unescape|-x)	shift; [ "$action" ] && multipleActionsError "$0"; action='unescape'
+
+			if [ $# -eq 0 -o "$1" = '-' ]; then
+			    line="$(< /dev/stdin)"
+			else
+			    line="${1?}"
+			fi
+			shift
+			table='dummy'	# Need to set this as it's mandatory for all other actions, but not used for unescape.
 			;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
@@ -122,6 +174,47 @@ elif [ ! "$table" ]; then
 fi
 
 
+translateColumnNamesToIndices()
+{
+    # Translate any queried column names into the corresponding indices, using
+    # the provided schema.
+
+    typeset -A schemaToIndex=()
+    for ((i = 0; i < ${#schema[@]}; i++))
+    do
+	schemaToIndex["${schema[$i]}"]="$i"
+    done
+
+    for ((i = 0; i < ${#queriedColumns[@]}; i++))
+    do
+	case "${queriedColumns[$i]}" in
+	    +([0-9]))
+		;;
+	    *)
+		index="${schemaToIndex["${queriedColumns[$i]}"]}"
+		if [ "$index" ]; then
+		    queriedColumns[$i]="$index"
+		elif [ ${#schema[@]} -eq 0 ]; then
+		    return 1
+		else
+		    printf >&2 'ERROR: Unknown column %s; not an index nor named in schema %s.\n' "${queriedColumns[$i]}" "${schema[*]}"
+		    exit 2
+		fi
+		;;
+	esac
+    done
+}
+loadSchemaFromTable()
+{
+    [ -e "$TABLE_FILESPEC" ] || return 1
+    local schemaLine="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e b -e ':skipHeader' -e 'p' "$TABLE_FILESPEC")"
+    [ "$schemaLine" ] || return 1
+
+    schema=(${schemaLine#\# })
+    typeset -a defaultSchema=($DEFAULT_SCHEMA)
+    [ ${#schema[@]} -gt 0 -a "${schema[*]}" != "${defaultSchema[*]}" ]
+}
+
 literalPattern()
 {
     sed -e 's/[][\$*.^/]/\\&/g'
@@ -130,9 +223,14 @@ escapeNewline()
 {
     sed ':a; s/\\/\\\\/g; x; G; 1s/\n//; s/\n/\\n/; h; N; s/.*\n//; ta' <<<"${1:?}"
 }
+unescape()
+{
+    echo -e "${line/#-/\\x2d}"
+}
 
 query()
 {
+    local IFS=$'\t'
     [ -e "$TABLE_FILESPEC" ] || return 1
 
     # Escape newlines and backslashes.
@@ -148,11 +246,32 @@ query()
 	local line="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e "/^${literalKeyPattern}\\t/p" -e ':skipHeader' "$TABLE_FILESPEC")"
     fi
     [ "$line" ] || return 4
-    echo -e "${line/#-/\\x2d}"
+
+    if [ "$isOmitKey" ]; then
+	line="${line#*$'\t'}"
+    elif [ ${#queriedColumns[@]} -gt 0 ]; then
+	typeset -a columns=($line)
+	local newLine=
+	local separator=
+	for c in "${queriedColumns[@]}"
+	do
+	    newLine="${newLine}${separator}${columns[$c]}"
+	    separator=$'\t'
+	done
+	line="$newLine"
+    fi
+
+    if [ "$isAsEscapedLines" ]; then
+	typeset -a columns=($line)
+	printf '%s\n' "${columns[@]}"
+    else
+	unescape "$line"
+    fi
 }
 
 initializeTable()
 {
+    [ ${#schema[@]} -eq 0 ] && schema=($DEFAULT_SCHEMA)
     local IFS=$'\t'
     printf > "$TABLE_FILESPEC" '# %s\n' "${schema[*]}"
 }
@@ -189,5 +308,15 @@ typeset -a IGNORE_HEADER_LINE_SED_ARGS=(-e '1{ /^#/b skipHeader }')
 readonly CONFIG_DIRSPEC="${XDG_CONFIG_HOME:-$HOME/.config}${namespace:+/}$namespace"
 [ -d "$CONFIG_DIRSPEC" ] || mkdir -p -- "$CONFIG_DIRSPEC" || { printf >&2 'ERROR: Could not initialize database store at %s!\n' "$CONFIG_DIRSPEC"; exit 1; }
 readonly TABLE_FILESPEC="${CONFIG_DIRSPEC}/$table"
+
+if [ ${#queriedColumns[@]} -gt 0 ]; then
+    if ! translateColumnNamesToIndices; then
+	if ! loadSchemaFromTable; then
+	    printf >&2 'ERROR: Cannot resolve named columns from the table %s, as no schema is defined there. Use indices or pass a --schema SCHEMA.\n' "${namespace}${namespace:+/}${table}"
+	    exit 2
+	fi
+	translateColumnNamesToIndices
+    fi
+fi
 
 "$action"

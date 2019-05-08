@@ -1,0 +1,7 @@
+# ID	DESCRIPTION	COUNT	NOTES
+foo	The /Foo\\ is here	42	with backslash
+bar	A man\n\nwalks in\\to a	21	with one\nnewline and \\ backslash
+foobar	The\n"original"\n\none	1	with multiple and empty lines
+o O	An ID with space in it
+empty	
+*	Looks like a placeholder to me	0
