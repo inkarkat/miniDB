@@ -10,7 +10,7 @@ printShortUsage()
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -u|--update RECORD'
     #printf 'Usage: %q %s\n' "$(basename "$1")" '... -d|--delete KEY'
     #printf 'Usage: %q %s\n' "$(basename "$1")" '... -D|--drop'
-    #printf 'Usage: %q %s\n' "$(basename "$1")" '... -e|--each COMMAND'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... -e|--each "COMMANDLINE" [-e|--each ...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -q|--query KEY [-f|--fallback FALLBACK-KEY] [-c|--columns *|COL1 [...]|N [...]] [--as-escaped-lines]'
     printf 'Usage: %q -x|--unescape "$(%q %s)"\n' "$(basename "$1")" "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-escaped-lines'
     printf 'Usage: %q %s | %q -x|--unescape [-]\n' "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-escaped-lines' "$(basename "$1")"
@@ -66,6 +66,14 @@ HELPDESCRIPTION
 				original text (of a single column; you could
 				pass multiple columns, but then the column
 				borders would be lost).
+    --each COMMANDLINE		Invoke COMMANDLINE once for each record. Values
+				for the current record's columns are available
+				in shell variables that correspond to the
+				table's schema. If you didn't define a schema on
+				table creation you need to explicitly provide
+				one via --schema now. If there are multiple
+				COMMANDLINEs, each will be a separate pass over
+				the table.
 EXIT STATUS:
     0	Complete success.
     1	Failed to read / write the table file.
@@ -101,6 +109,7 @@ action=
 typeset -a queriedColumns=()
 isOmitKey=
 isAsEscapedLines=
+typeset -a commandLines=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -153,6 +162,7 @@ do
 			shift
 			table='dummy'	# Need to set this as it's mandatory for all other actions, but not used for unescape.
 			;;
+	--each|-e)	shift; [ "$action" -a "$action" != 'each' ] && multipleActionsError "$0"; action='each'; commandLines+=("$1"); shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -302,6 +312,12 @@ update()
 	-e "\$a${line//\\/\\\\}" \
 	"$TABLE_FILESPEC" || return 1
 }
+
+each()
+{
+    :
+}
+
 
 typeset -a IGNORE_HEADER_LINE_SED_ARGS=(-e '1{ /^#/b skipHeader }')
 
