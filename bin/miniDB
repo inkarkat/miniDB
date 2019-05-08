@@ -313,9 +313,21 @@ update()
 	-- "$TABLE_FILESPEC" || return 1
 }
 
+iterateOverRecords()
+{
+    local commandLine="${1?}"; shift
+    while IFS=$'\t' read -r "${schema[@]}"
+    do
+	eval "$commandLine"
+    done < <(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e p -e ':skipHeader' -- "$TABLE_FILESPEC")
+}
 each()
 {
-    :
+    [ -e "$TABLE_FILESPEC" ] || return 1
+    for cl in "${commandLines[@]}"
+    do
+	iterateOverRecords "$cl"
+    done
 }
 
 
