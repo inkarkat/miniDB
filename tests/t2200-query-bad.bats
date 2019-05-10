@@ -2,6 +2,13 @@
 
 load canned_databases
 
+@test "query action with no table prints message and usage instructions" {
+    run miniDB --query foo
+    [ $status -eq 2 ]
+    [ "${lines[0]}" = 'ERROR: No TABLE passed.' ]
+    [ "${lines[2]%% *}" = 'Usage:' ]
+}
+
 @test "a query key that contains a tab character is rejected" {
     run miniDB --table one-entry --query "with	tab"
     [ $status -eq 2 ]

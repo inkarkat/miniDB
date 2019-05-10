@@ -34,10 +34,3 @@ load canned_databases
     [ "${lines[0]}" = 'ERROR: No action passed.' ]
     [ "${lines[2]%% *}" = 'Usage:' ]
 }
-
-@test "query action with no table prints message and usage instructions" {
-    run miniDB --query foo
-    [ $status -eq 2 ]
-    [ "${lines[0]}" = 'ERROR: No TABLE passed.' ]
-    [ "${lines[2]%% *}" = 'Usage:' ]
-}
