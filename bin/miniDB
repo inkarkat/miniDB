@@ -145,6 +145,9 @@ do
 			    echo >&2
 			    printShortUsage "$0" >&2
 			    exit 2
+			elif [ ! "$key" ]; then
+			    echo >&2 'ERROR: Key must not be empty.'
+			    exit 2
 			fi
 			;;
 	--query|-q)	shift; [ "$action" ] && multipleActionsError "$0"; action='query'; key="$1"; shift
@@ -341,6 +344,20 @@ delete()
 {
     local IFS=$'\t'
     [ -e "$TABLE_FILESPEC" ] || return 1
+
+    local literalKeyPattern="$(printf %s "$key" | literalPattern)"
+
+    # If we find the key, duplicate its line into the hold space; this serves as
+    # a marker that a deletion was done.
+    # On the last line, we check the hold space, and indicate unsuccessful
+    # deletion via a special exit status.
+    sed -i \
+	"${IGNORE_HEADER_LINE_SED_ARGS[@]}" \
+	-e "/^${literalKeyPattern}\\t/{ h; d; }" \
+	-e ':skipHeader' \
+	-e '${ x; /./{ x; b; }; x; }' \
+	-e '$q 4' \
+	-- "$TABLE_FILESPEC"
 }
 
 iterateOverRecords()

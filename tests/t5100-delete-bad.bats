@@ -8,6 +8,12 @@ load temp_database
     [ "${lines[0]}" = 'ERROR: KEY cannot contain tab characters.' ]
 }
 
+@test "an empty delete key is rejected" {
+    run miniDB --table "$BATS_TEST_NAME" --delete ""
+    [ $status -eq 2 ]
+    [ "${lines[0]}" = 'ERROR: Key must not be empty.' ]
+}
+
 @test "a delete on a non-existing database fails" {
     clean_table "$BATS_TEST_NAME"
 
