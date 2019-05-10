@@ -9,7 +9,7 @@ printShortUsage()
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--schema "KEY COL1 [COL2 ...]"] [-n|--namespace NAMESPACE] -t|--table TABLE [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -u|--update RECORD'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -d|--delete KEY'
-    #printf 'Usage: %q %s\n' "$(basename "$1")" '... -D|--drop'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... -D|--drop'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -e|--each "COMMANDLINE" [-e|--each ...] [--before "COMMANDLINE" [--before ...]] [--after "COMMANDLINE" [--after ...]]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -q|--query KEY [-f|--fallback FALLBACK-KEY] [-c|--columns *|COL1 [...]|N [...]] [--as-escaped-lines]'
     printf 'Usage: %q -x|--unescape "$(%q %s)"\n' "$(basename "$1")" "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-escaped-lines'
@@ -44,6 +44,8 @@ HELPDESCRIPTION
 				record with the same KEY is overwritten, else it
 				is appended.
     --delete|-d KEY		Delete any existing record for KEY.
+    --drop|-D			Completely wipe all records and the table
+				configuration file itself.
     --query|-q KEY		Query whether a record for KEY exists and return
 				it.
     --fallback|-f FALLBACK-KEY
@@ -84,7 +86,7 @@ HELPDESCRIPTION
 				results.
 EXIT STATUS:
     0	Complete success.
-    1	Failed to read / write the table file.
+    1	Failed to read / write / remove the table file.
     2	Bad invocation, wrong or missing command-line arguments.
     3	Internal error or failed assertion.
     4	The queried KEY (nor FALLBACK-KEY if given) / to-be-deleted key does not
@@ -150,6 +152,7 @@ do
 			    exit 2
 			fi
 			;;
+	--drop|-D)	shift; [ "$action" ] && multipleActionsError "$0"; action='drop';;
 	--query|-q)	shift; [ "$action" ] && multipleActionsError "$0"; action='query'; key="$1"; shift
 			if containsTab "$key"; then
 			    echo >&2 'ERROR: KEY cannot contain tab characters.'
@@ -358,6 +361,12 @@ delete()
 	-e '${ x; /./{ x; b; }; x; }' \
 	-e '$q 4' \
 	-- "$TABLE_FILESPEC"
+}
+
+drop()
+{
+    [ -e "$TABLE_FILESPEC" ] || return 1
+    rm -- "$TABLE_FILESPEC"
 }
 
 iterateOverRecords()
