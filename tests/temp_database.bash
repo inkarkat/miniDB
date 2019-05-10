@@ -7,6 +7,11 @@ clean_table()
     rm -f "${XDG_CONFIG_HOME}/${1:?}"
 }
 
+table_exists()
+{
+    [ -e "${XDG_CONFIG_HOME}/${1:?}" ]
+}
+
 initialize_table()
 {
     [ "$2" = from ] || exit 2

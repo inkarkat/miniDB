@@ -9,7 +9,11 @@ load temp_database
 }
 
 @test "a delete on a non-existing database fails" {
+    clean_table "$BATS_TEST_NAME"
+
     run miniDB --table doesNotExist --delete whatever
+
     [ $status -eq 1 ]
     [ "$output" = "" ]
+    ! table_exists "$BATS_TEST_NAME"
 }
