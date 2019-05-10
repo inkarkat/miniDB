@@ -153,6 +153,9 @@ do
 			    echo >&2
 			    printShortUsage "$0" >&2
 			    exit 2
+			elif [ ! "$key" ]; then
+			    echo >&2 'ERROR: Key must not be empty.'
+			    exit 2
 			fi
 			;;
 	--columns|-c)	shift

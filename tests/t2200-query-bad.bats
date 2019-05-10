@@ -8,6 +8,12 @@ load canned_databases
     [ "${lines[0]}" = 'ERROR: KEY cannot contain tab characters.' ]
 }
 
+@test "an empty query key is rejected" {
+    run miniDB --table "$BATS_TEST_NAME" --query ""
+    [ $status -eq 2 ]
+    [ "${lines[0]}" = 'ERROR: Key must not be empty.' ]
+}
+
 @test "a query on a non-existing database fails" {
     run miniDB --table doesNotExist --query whatever
     [ $status -eq 1 ]
