@@ -8,7 +8,7 @@ printShortUsage()
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--schema "KEY COL1 [COL2 ...]"] [-n|--namespace NAMESPACE] -t|--table TABLE [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -u|--update RECORD'
-    #printf 'Usage: %q %s\n' "$(basename "$1")" '... -d|--delete KEY'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... -d|--delete KEY'
     #printf 'Usage: %q %s\n' "$(basename "$1")" '... -D|--drop'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -e|--each "COMMANDLINE" [-e|--each ...] [--before "COMMANDLINE" [--before ...]] [--after "COMMANDLINE" [--after ...]]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -q|--query KEY [-f|--fallback FALLBACK-KEY] [-c|--columns *|COL1 [...]|N [...]] [--as-escaped-lines]'
@@ -43,6 +43,7 @@ HELPDESCRIPTION
 				+ optional additional columns. An existing
 				record with the same KEY is overwritten, else it
 				is appended.
+    --delete|-d KEY		Delete any existing record for KEY.
     --query|-q KEY		Query whether a record for KEY exists and return
 				it.
     --fallback|-f FALLBACK-KEY
@@ -86,7 +87,8 @@ EXIT STATUS:
     1	Failed to read / write the table file.
     2	Bad invocation, wrong or missing command-line arguments.
     3	Internal error or failed assertion.
-    4	The queried KEY (nor FALLBACK-KEY if given) does not exist.
+    4	The queried KEY (nor FALLBACK-KEY if given) / to-be-deleted key does not
+	exist.
 
 Example:
 HELPTEXT
@@ -136,6 +138,14 @@ do
 	--fallback|-f)	shift; fallbackKey="$1"; shift;;
 	--update|-u)	shift; [ "$action" ] && multipleActionsError "$0"; action='update'; line="$1"; shift
 			containsTab "$line" || line="${line}$'\t'"   # Need at least one tab separator.
+			;;
+	--delete|-d)	shift; [ "$action" ] && multipleActionsError "$0"; action='delete'; key="$1"; shift
+			if containsTab "$key"; then
+			    echo >&2 'ERROR: KEY cannot contain tab characters.'
+			    echo >&2
+			    printShortUsage "$0" >&2
+			    exit 2
+			fi
 			;;
 	--query|-q)	shift; [ "$action" ] && multipleActionsError "$0"; action='query'; key="$1"; shift
 			if containsTab "$key"; then
@@ -322,6 +332,12 @@ update()
 	-e '${ x; /./{ x; b; }; x; }' \
 	-e "\$a${line//\\/\\\\}" \
 	-- "$TABLE_FILESPEC" || return 1
+}
+
+delete()
+{
+    local IFS=$'\t'
+    [ -e "$TABLE_FILESPEC" ] || return 1
 }
 
 iterateOverRecords()
