@@ -1,4 +1,20 @@
 #!/bin/bash
+###############################################################################
+##
+# FILE:		miniDB
+# PRODUCT:	tools
+# AUTHOR:	Ingo Karkat <ingo@karkat.de>
+# DATE CREATED:	04-Apr-2019
+#
+###############################################################################
+# CONTENTS:
+#   A lightweight file-based columnar database supporting CRUD operations with a
+#   single lookup key.
+#
+# REMARKS:
+#
+# @(#)miniDB	$Id$	tools
+###############################################################################
 set -o noglob
 shopt -qs extglob
 
