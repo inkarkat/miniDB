@@ -389,7 +389,11 @@ drop()
 iterateOverRecords()
 {
     local commandLine="${1?}"; shift
-    while IFS=$'\t' read -r "${schema[@]}"
+    typeset -a normalizedSchema=("${schema[@]}")
+    normalizedSchema=("${normalizedSchema[@]/#[^a-zA-Z_]/_}")
+    normalizedSchema=("${normalizedSchema[@]//[^a-zA-Z0-9_]/_}")
+
+    while IFS=$'\t' read -r "$@" "${normalizedSchema[@]}"
     do
 	eval "$commandLine"
     done < <(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e p -e ':skipHeader' -- "$TABLE_FILESPEC")
@@ -398,16 +402,17 @@ each()
 {
     [ -e "$TABLE_FILESPEC" ] || return 1
 
+    typeset -a iterateReadArgs=()
     if [ ${#schema[@]} -eq 0 ]; then
 	if ! loadSchemaFromTable; then
-	    schema=(-a COL)
+	    iterateReadArgs=(-a COL)
 	fi
     fi
 
     eval "${beforeCommands[@]}"
 	for cl in "${commandLines[@]}"
 	do
-	    iterateOverRecords "$cl"
+	    iterateOverRecords "$cl" "${iterateReadArgs[@]}"
 	done
     eval "${afterCommands[@]}"
 }
