@@ -266,9 +266,10 @@ loadSchemaFromTable()
     local schemaLine="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e b -e ':skipHeader' -e 'p' -- "$TABLE_FILESPEC")"
     [ "$schemaLine" ] || return 1
 
-    schema=(${schemaLine#\# })
-    typeset -a defaultSchema=($DEFAULT_SCHEMA)
-    [ ${#schema[@]} -gt 0 -a "${schema[*]}" != "${defaultSchema[*]}" ]
+    local IFS=' '; typeset -a defaultSchema=($DEFAULT_SCHEMA)
+    local IFS=$'\t'; schema=(${schemaLine#\# })
+    [ ${#schema[@]} -gt 0 -a "${schema[*]}" = "${defaultSchema[*]}" ] && schema=()
+    [ ${#schema[@]} -gt 0 ]
 }
 
 literalPattern()
@@ -327,7 +328,7 @@ query()
 
 initializeTable()
 {
-    [ ${#schema[@]} -eq 0 ] && schema=($DEFAULT_SCHEMA)
+    local IFS=' '; [ ${#schema[@]} -eq 0 ] && schema=($DEFAULT_SCHEMA)
     local IFS=$'\t'
     printf > "$TABLE_FILESPEC" '# %s\n' "${schema[*]}"
 }
