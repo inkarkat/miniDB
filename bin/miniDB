@@ -137,7 +137,7 @@ fallbackKey=
 action=
 typeset -a queriedColumns=()
 isOmitKey=
-isAsEscapedLines=
+outputFormat=
 typeset -a commandLines=()
 typeset -a beforeCommands=()
 typeset -a afterCommands=()
@@ -199,7 +199,7 @@ do
 			shift
 			;;
 	--as-escaped-lines)
-			shift; isAsEscapedLines=t;;
+			shift; outputFormat='escapedLines';;
 	--unescape|-x)	shift; [ "$action" ] && multipleActionsError "$0"; action='unescape'
 
 			if [ $# -eq 0 -o "$1" = '-' ]; then
@@ -322,12 +322,14 @@ query()
 	line="$newLine"
     fi
 
-    if [ "$isAsEscapedLines" ]; then
-	typeset -a columns=($line)
-	printf '%s\n' "${columns[@]}"
-    else
-	unescape "$line"
-    fi
+    case "$outputFormat" in
+	escapedLines)
+	    typeset -a columns=($line)
+	    printf '%s\n' "${columns[@]}"
+	    ;;
+	'') unescape "$line";;
+	*)  printf >&2 'ASSERT: Unknown outputFormat: %s\n' "$outputFormat"; exit 2;;
+    esac
 }
 
 initializeTable()
