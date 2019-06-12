@@ -29,6 +29,7 @@ printShortUsage()
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -e|--each "COMMANDLINE" [-e|--each ...] [--before "COMMANDLINE" [--before ...]] [--after "COMMANDLINE" [--after ...]]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -q|--query KEY [-f|--fallback FALLBACK-KEY] [-c|--columns *|COL1 [...]|N [...]] [--as-escaped-lines]'
     printf 'Usage: %q -x|--unescape "$(%q %s)"\n' "$(basename "$1")" "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-escaped-lines'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... -k|--query-keys'
     printf 'Usage: %q %s | %q -x|--unescape [-]\n' "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-escaped-lines' "$(basename "$1")"
 }
 printUsage()
@@ -85,6 +86,7 @@ HELPDESCRIPTION
 				original text (of a single column; you could
 				pass multiple columns, but then the column
 				borders would be lost).
+    --query-keys|-k		List all available keys.
     --each COMMANDLINE		Invoke COMMANDLINE once for each record. Values
 				for the current record's columns are available
 				in shell variables that correspond to the
@@ -180,6 +182,8 @@ do
 			    exit 2
 			fi
 			;;
+	--query-keys|-k)
+			shift; [ "$action" ] && multipleActionsError "$0"; action='queryKeys';;
 	--columns|-c)	shift
 			if [ "$1" = '*' ]; then
 			    isOmitKey=t
@@ -415,6 +419,12 @@ each()
 	    iterateOverRecords "$cl" "${iterateReadArgs[@]}"
 	done
     eval "${afterCommands[@]}"
+}
+queryKeys()
+{
+    [ -e "$TABLE_FILESPEC" ] || return 1
+    schema=(key ignoredColumns)
+    iterateOverRecords 'echo $key'
 }
 
 
