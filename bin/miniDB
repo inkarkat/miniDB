@@ -129,6 +129,7 @@ multipleActionsError()
 }
 readonly DEFAULT_SCHEMA='KEY COLUMN ...'
 typeset -a schema=()
+typeset -a normalizedSchema=()
 namespace=
 table=
 line=
@@ -288,6 +289,12 @@ unescape()
 {
     echo -e "${line/#-/\\x2d}"
 }
+normalizeSchema()
+{
+    normalizedSchema=("${schema[@]}")
+    normalizedSchema=("${normalizedSchema[@]/#[^a-zA-Z_]/_}")
+    normalizedSchema=("${normalizedSchema[@]//[^a-zA-Z0-9_]/_}")
+}
 
 query()
 {
@@ -395,9 +402,7 @@ drop()
 iterateOverRecords()
 {
     local commandLine="${1?}"; shift
-    typeset -a normalizedSchema=("${schema[@]}")
-    normalizedSchema=("${normalizedSchema[@]/#[^a-zA-Z_]/_}")
-    normalizedSchema=("${normalizedSchema[@]//[^a-zA-Z0-9_]/_}")
+    normalizeSchema
 
     while IFS=$'\t' read -r "$@" "${normalizedSchema[@]}"
     do
