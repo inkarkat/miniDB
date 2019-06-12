@@ -27,8 +27,9 @@ printShortUsage()
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -d|--delete KEY'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -D|--drop'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -e|--each "COMMANDLINE" [-e|--each ...] [--before "COMMANDLINE" [--before ...]] [--after "COMMANDLINE" [--after ...]]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... -q|--query KEY [-f|--fallback FALLBACK-KEY] [-c|--columns *|COL1 [...]|N [...]] [--as-escaped-lines]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... -q|--query KEY [-f|--fallback FALLBACK-KEY] [-c|--columns *|COL1 [...]|N [...]] [--as-escaped-lines|--as-shell-variables]'
     printf 'Usage: %q -x|--unescape "$(%q %s)"\n' "$(basename "$1")" "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-escaped-lines'
+    printf 'Usage: eval "$(%q %s)"\n' "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-shell-variables'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -k|--query-keys'
     printf 'Usage: %q %s | %q -x|--unescape [-]\n' "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-escaped-lines' "$(basename "$1")"
 }
@@ -81,6 +82,12 @@ HELPDESCRIPTION
 				column will be escaped as \\n and \\\\,
 				respectively, so that newlines don't interfere
 				with the line structure and parsing.
+    --as-escaped-lines		Instead of returning the record in the original
+				format, return each column as a separate shell
+				variable, named after the schema (or COL0, COL1,
+				... if no schema is passed nor defined on the
+				table). The output is expected to be eval'd to
+				define the variables.
     --unescape|-x OUTPUT|[-]	Interpret escaped backslashes and newlines from
 				a query with --as-escaped-lines into the
 				original text (of a single column; you could
@@ -201,6 +208,8 @@ do
 			;;
 	--as-escaped-lines)
 			shift; outputFormat='escapedLines';;
+	--as-shell-variables)
+			shift; outputFormat='shellVariables';;
 	--unescape|-x)	shift; [ "$action" ] && multipleActionsError "$0"; action='unescape'
 
 			if [ $# -eq 0 -o "$1" = '-' ]; then
@@ -316,6 +325,7 @@ query()
     fi
     [ "$line" ] || return 4
 
+    local fullLine="$line"
     if [ "$isOmitKey" ]; then
 	line="${line#*$'\t'}"
     elif [ ${#queriedColumns[@]} -gt 0 ]; then
@@ -334,6 +344,28 @@ query()
 	escapedLines)
 	    typeset -a columns=($line)
 	    printf '%s\n' "${columns[@]}"
+	    ;;
+	shellVariables)
+	    if [ ${#queriedColumns[@]} -eq 0 ]; then
+		typeset -a columns=($fullLine)
+		if [ ${#schema[@]} -eq 0 ]; then
+		    if ! loadSchemaFromTable; then
+			local lastCol=$((${#columns[@]} - 1))
+			eval "schema=({0..$lastCol})"
+			schema=("${schema[@]/#/COL}")
+		    fi
+		fi
+		local end=$((${#schema[@]} - 1))
+		local start=0; [ "$isOmitKey" ] && start=1
+		eval "queriedColumns=({$start..$end})"
+	    fi
+
+	    normalizeSchema
+	    for c in "${queriedColumns[@]}"
+	    do
+		local value="$(unescape "${columns[$c]}x")"
+		printf '%s=%q\n' "${normalizedSchema[$c]}" "${value%x}"
+	    done
 	    ;;
 	'') unescape "$line";;
 	*)  printf >&2 'ASSERT: Unknown outputFormat: %s\n' "$outputFormat"; exit 2;;
