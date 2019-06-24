@@ -399,10 +399,12 @@ update()
     sed -i \
 	"${IGNORE_HEADER_LINE_SED_ARGS[@]}" \
 	-e "/^${literalKeyPattern}\\t/h" \
-	-e "/^${literalKeyPattern}\\t/c${line//\\/\\\\}"  \
+	-e "/^${literalKeyPattern}\\t/c\\
+${line//\\/\\\\}"  \
 	-e ':skipHeader' \
 	-e '${ x; /./{ x; b; }; x; }' \
-	-e "\$a${line//\\/\\\\}" \
+	-e "\$a\\
+${line//\\/\\\\}" \
 	-- "$TABLE_FILESPEC" || return 1
 }
 
