@@ -18,11 +18,12 @@
 set -o noglob
 shopt -qs extglob
 
+baseDir="${XDG_CONFIG_HOME:-$HOME/.config}"
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[-s|--schema "KEY COL1 [COL2 ...]"] [-n|--namespace NAMESPACE] -t|--table TABLE [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--basedir DIR|--base-type config|data|runtime|cache] [-s|--schema "KEY COL1 [COL2 ...]"] [-n|--namespace NAMESPACE] -t|--table TABLE [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -u|--update RECORD'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -d|--delete KEY'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -D|--drop'
@@ -51,6 +52,12 @@ HELPDESCRIPTION
     echo
     printShortUsage "$1"
     cat <<HELPTEXT
+    --basedir DIR		Set the base directory in which the NAMESPACE
+				dir / TABLE file is stored. Defaults to
+				XDG_CONFIG_HOME=$baseDir.
+    --base-type config|data|runtime|cache
+				Set the base directory based on the passed
+				characterization. The default is "config".
     --schema|-s "KEY COL1 [...]"Optional database schema; will be included as a
 				commented first line in the data file.
     --namespace|-n NAMESPACE	Optional application / use case for this tool's
@@ -153,6 +160,21 @@ while [ $# -ne 0 ]
 do
     case "$1" in
 	--help|-h|-\?)	shift; printLongUsage "$0"; exit 0;;
+	--basedir)	shift; baseDir="$1"; shift;;
+	--base-type)	shift
+			case "$1" in
+			    config)	baseDir="${XDG_CONFIG_HOME:-$HOME/.config}";;
+			    data)	baseDir="${XDG_DATA_HOME:-$HOME/.local/share}";;
+			    runtime)	baseDir="${XDG_RUNTIME_DIR:-/run/user/$UID}";;
+			    cache)	baseDir="${XDG_CACHE_HOME:-$HOME/.cache}";;
+			    *)		printf >&2 'ERROR: Invalid base-type "%s".\n' "$1"
+					echo >&2
+					printShortUsage "$0" >&2
+					exit 2
+					;;
+			esac
+			shift
+			;;
 	--schema|-s)	shift; schema=($1); shift
 			if [ ${#schema[@]} -eq 0 ]; then
 			    echo >&2 'ERROR: No schema passed.'
@@ -472,7 +494,7 @@ queryKeys()
 
 typeset -a IGNORE_HEADER_LINE_SED_ARGS=(-e '1{ /^#/b skipHeader }')
 
-readonly CONFIG_DIRSPEC="${XDG_CONFIG_HOME:-$HOME/.config}${namespace:+/}$namespace"
+readonly CONFIG_DIRSPEC="${baseDir}${namespace:+/}$namespace"
 [ -d "$CONFIG_DIRSPEC" ] || mkdir -p -- "$CONFIG_DIRSPEC" || { printf >&2 'ERROR: Could not initialize database store at %s!\n' "$CONFIG_DIRSPEC"; exit 1; }
 readonly TABLE_FILESPEC="${CONFIG_DIRSPEC}/$table"
 

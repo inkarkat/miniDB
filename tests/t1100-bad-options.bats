@@ -9,3 +9,9 @@ load canned_databases
     [ "${lines[2]%% *}" = 'Usage:' ]
 }
 
+@test "invalid base-type prints usage error" {
+    run miniDB --base-type doesNotExist --table whatever --query foo
+    [ $status -eq 2 ]
+    [ "${lines[0]}" = 'ERROR: Invalid base-type "doesNotExist".' ]
+    [ "${lines[2]%% *}" = 'Usage:' ]
+}
