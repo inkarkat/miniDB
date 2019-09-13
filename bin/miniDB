@@ -184,7 +184,14 @@ do
 			fi
 			;;
 	--namespace|-n)	shift; namespace="$1"; shift;;
-	--table|-t)	shift; table="$1"; shift;;
+	--table|-t)	shift; table="$1"; shift
+			if [[ "$table" = */* ]]; then
+			    echo >&2 'ERROR: TABLE must not contain slashes.'
+			    echo >&2
+			    printShortUsage "$0" >&2
+			    exit 2
+			fi
+			;;
 	--fallback|-f)	shift; fallbackKey="$1"; shift;;
 	--update|-u)	shift; [ "$action" ] && multipleActionsError "$0"; action='update'; line="$1"; shift
 			containsTab "$line" || line="${line}$'\t'"   # Need at least one tab separator.
