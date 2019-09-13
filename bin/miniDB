@@ -26,15 +26,15 @@ case "$1" in
     TX-START)
 	now="$(date +%s)"
 	if IFS=' ' read -r timestamp mode owner < "$3"; then
-	    if [ $((now - timestamp + 1)) -gt $transactionTimeout ]; then
+	    if [ $((now - timestamp + 1)) -gt $6 ]; then
 		rollback "$@"
 	    else
 		if [ "$owner" = "$4" ]; then
 		    printf >&2 'ERROR: Another %s transaction by %s is already in progress.\n' "$mode" "$owner"
-		    return 1
+		    exit 1
 		else
 		    printf 'Timed out while another %s transaction by %s is in progress.\n' "$mode" "$owner"
-		    return 0
+		    exit 0
 		fi
 	    fi
 	fi
@@ -42,59 +42,63 @@ case "$1" in
 	if [ -e "$2" ]; then
 	    cat -- "$2" >> "$3"
 	fi
+	exit
 	;;
     TX-END)
 	now="$(date +%s)"
 	if IFS=' ' read -r timestamp mode owner < "$3"; then
 	    if [ "$owner" = "$4" ]; then
-		if [ $((now - timestamp + 1)) -gt $transactionTimeout ]; then
-		    diff=$((now - timestamp + 1 - transactionTimeout))
+		if [ $((now - timestamp + 1)) -gt $6 ]; then
+		    diff=$((now - timestamp + 1 - $6))
 		    diffPlural=s; [ $diff -eq 1 ] && diffPlural=
 		    printf >&2 'Warning: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"
 		fi
 	    else
 		printf >&2 'ERROR: Another transaction by %s has been started; any changes have been lost.\n' "$owner"
-		return 6
+		exit 6
 	    fi
 	else
 	    printf >&2 'ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
 	    rm -f "$3"
-	    return 6
+	    exit 6
 	fi
 	rm -f "$3"
+	exit
 	;;
     TX-ABORT)
 	if IFS=' ' read -r timestamp mode owner < "$3"; then
 	    if [ "$owner" != "$4" ]; then
 		printf >&2 'Warning: Another transaction by %s has been started; any changes have been lost, anyway.\n' "$owner"
-		return 0
+		exit 0
 	    fi
 	    rollback "$@"
 	else
 	    printf >&2 'Warning: Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
 	fi
 	rm -f "$3"
+	exit
 	;;
     TX-CHECK)
 	now="$(date +%s)"
 	if IFS=' ' read -r timestamp mode owner < "$3"; then
 	    if [ "$owner" = "$4" ]; then
-		if [ $((now - timestamp + 1)) -gt $transactionTimeout ]; then
-		    diff=$((now - timestamp + 1 - transactionTimeout))
+		if [ $((now - timestamp + 1)) -gt $6 ]; then
+		    diff=$((now - timestamp + 1 - $6))
 		    diffPlural=s; [ $diff -eq 1 ] && diffPlural=
 		    case "$5" in
 			read)	printf >&2 'Warning: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural";;
-			write)	printf >&2 'ERROR: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"; return 6;;
+			write)	printf >&2 'ERROR: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"; exit 6;;
 		    esac
 		fi
 	    else
 		printf >&2 'ERROR: Another transaction by %s has been started; any changes have been lost.\n' "$owner"
-		return 6
+		exit 6
 	    fi
 	else
 	    printf >&2 'ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
-	    return 6
+	    exit 6
 	fi
+	exit
 	;;
 esac
 
@@ -642,7 +646,7 @@ lockedCall()
     local scriptFilespec="${BASH_SOURCE[0]}"
     local method="${1:?}"; shift
     local mode=write; [ "$needReadLock" ] && mode=read
-    flock "$@" --conflict-exit-code 5 ${waitTimeout:+--timeout "$waitTimeout"} "$LOCK_FILESPEC" "$scriptFilespec" "$method" "$TABLE_FILESPEC" "$LOCK_FILESPEC" "$transactionOwner" "$mode"
+    flock "$@" --conflict-exit-code 5 ${waitTimeout:+--timeout "$waitTimeout"} "$LOCK_FILESPEC" "$scriptFilespec" "$method" "$TABLE_FILESPEC" "$LOCK_FILESPEC" "$transactionOwner" "$mode" "$transactionTimeout"
 }
 startTransaction()
 {
