@@ -313,7 +313,7 @@ do
 			shift
 			;;
 	--transactional|-t)		shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; preAction='startTransaction'; postAction='endTransaction'; transactionOwner="$$";;
-	--within-transaction)		shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; preAction='checkTransaction'; transactionOwner="$1";;
+	--within-transaction)		shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; preAction='checkTransaction'; transactionOwner="$1"; shift;;
 	--start-read-transaction)	shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; [ "$action" ] && multipleActionsError "$0"; action='startTransaction'; needReadLock=t; transactionOwner="$1"; shift;;
 	--start-write-transaction)	shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; [ "$action" ] && multipleActionsError "$0"; action='startTransaction'; transactionOwner="$1"; shift;;
 	--end-transaction)		shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; [ "$action" ] && multipleActionsError "$0"; action='endTransaction'; transactionOwner="$1"; shift;;
