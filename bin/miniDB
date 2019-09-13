@@ -18,12 +18,93 @@
 set -o noglob
 shopt -qs extglob
 
+rollback()
+{
+    tail -n +2 "$3" > "$2"
+}
+case "$1" in
+    TX-START)
+	now="$(date +%s)"
+	if IFS=' ' read -r timestamp mode owner < "$3"; then
+	    if [ $((now - timestamp + 1)) -gt $transactionTimeout ]; then
+		rollback "$@"
+	    else
+		if [ "$owner" = "$4" ]; then
+		    printf >&2 'ERROR: Another %s transaction by %s is already in progress.\n' "$mode" "$owner"
+		    return 1
+		else
+		    printf 'Timed out while another %s transaction by %s is in progress.\n' "$mode" "$owner"
+		    return 0
+		fi
+	    fi
+	fi
+	printf > "$3" '%s %s %s\n' "$now" "$5" "$4"
+	if [ -e "$2" ]; then
+	    cat -- "$2" >> "$3"
+	fi
+	;;
+    TX-END)
+	now="$(date +%s)"
+	if IFS=' ' read -r timestamp mode owner < "$3"; then
+	    if [ "$owner" = "$4" ]; then
+		if [ $((now - timestamp + 1)) -gt $transactionTimeout ]; then
+		    diff=$((now - timestamp + 1 - transactionTimeout))
+		    diffPlural=s; [ $diff -eq 1 ] && diffPlural=
+		    printf >&2 'Warning: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"
+		fi
+	    else
+		printf >&2 'ERROR: Another transaction by %s has been started; any changes have been lost.\n' "$owner"
+		return 6
+	    fi
+	else
+	    printf >&2 'ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
+	    rm -f "$3"
+	    return 6
+	fi
+	rm -f "$3"
+	;;
+    TX-ABORT)
+	if IFS=' ' read -r timestamp mode owner < "$3"; then
+	    if [ "$owner" != "$4" ]; then
+		printf >&2 'Warning: Another transaction by %s has been started; any changes have been lost, anyway.\n' "$owner"
+		return 0
+	    fi
+	    rollback "$@"
+	else
+	    printf >&2 'Warning: Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
+	fi
+	rm -f "$3"
+	;;
+    TX-CHECK)
+	now="$(date +%s)"
+	if IFS=' ' read -r timestamp mode owner < "$3"; then
+	    if [ "$owner" = "$4" ]; then
+		if [ $((now - timestamp + 1)) -gt $transactionTimeout ]; then
+		    diff=$((now - timestamp + 1 - transactionTimeout))
+		    diffPlural=s; [ $diff -eq 1 ] && diffPlural=
+		    case "$5" in
+			read)	printf >&2 'Warning: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural";;
+			write)	printf >&2 'ERROR: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"; return 6;;
+		    esac
+		fi
+	    else
+		printf >&2 'ERROR: Another transaction by %s has been started; any changes have been lost.\n' "$owner"
+		return 6
+	    fi
+	else
+	    printf >&2 'ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
+	    return 6
+	fi
+	;;
+esac
+
 baseDir="${XDG_CONFIG_HOME:-$HOME/.config}"
 printShortUsage()
 {
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
-    printf 'Usage: %q %s\n' "$(basename "$1")" '[--basedir DIR|--base-type config|data|runtime|cache] [-s|--schema "KEY COL1 [COL2 ...]"] [-n|--namespace NAMESPACE] -t|--table TABLE [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--basedir DIR|--base-type config|data|runtime|cache] [-t|--transactional [--timeout SECONDS] [--transaction-timeout TX-TIMEOUT]] [-s|--schema "KEY COL1 [COL2 ...]"] [-n|--namespace NAMESPACE] -t|--table TABLE [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... --start-read-transaction OWNER-ID|--start-write-transaction OWNER-ID|within-transaction OWNER-ID|--end-transaction OWNER-ID|--abort-write-transaction OWNER-ID [--timeout SECONDS] [--transaction-timeout TX-TIMEOUT]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -u|--update RECORD'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -d|--delete KEY'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -D|--drop'
@@ -58,6 +139,40 @@ HELPDESCRIPTION
     --base-type config|data|runtime|cache
 				Set the base directory based on the passed
 				characterization. The default is "config".
+    --transactional|-t		Lock TABLE during the access so that writes are
+				serialized and concurrent reads can only happen
+				while no write is under way. Pass this to ensure
+				consistency in case there could ever be
+				contention over the file.
+    --timeout SECONDS		Fail if the lock to start a transaction cannot
+				be acquired within SECONDS (instead of waiting
+				indefinitely) (because another transaction is
+				still active).
+				0 means fail rather than wait if the lock cannot
+				be immediately acquired.
+    --start-read-transaction OWNER-ID
+				Start a transaction that does not modify TABLE.
+				Until --end-transaction (or TX-TIMEOUT), no
+				other updates to the TABLE are possible.
+    --start-write-transaction OWNER-ID
+				Start a transaction that modifies TABLE.
+				Until --end-transaction (or TX-TIMEOUT), no
+				other reads or updates to the TABLE are
+				possible.
+    --within-transaction OWNER-ID
+				Perform an action within the transaction.
+    --end-transaction OWNER-ID
+				End the transaction, so that other clients can
+				do updates again. If this does not happen within
+				TX-TIMEOUT, another transaction may be started
+				and aborts this one.
+    --abort-write-transaction OWNER-ID
+				End the transaction, and undo any writes done
+				within it.
+    --transaction-timeout TX-TIMEOUT
+				A transition is automatically aborted if more
+				than TX-TIMEOUT (default 3) seconds passed since
+				--start-*-transaction.
     --schema|-s "KEY COL1 [...]"Optional database schema; will be included as a
 				commented first line in the data file.
     --namespace|-n NAMESPACE	Optional application / use case for this tool's
@@ -123,6 +238,10 @@ EXIT STATUS:
     3	Internal error or failed assertion.
     4	The queried KEY (nor FALLBACK-KEY if given) / to-be-deleted key does not
 	exist.
+    5	Time out while waiting to start a transaction.
+    6	The current transaction has taken too long (TX-TIMEOUT). On
+	modifications --within-transaction, aborts. On --end-transaction, if it
+	was pre-empted by another one, any updates have been lost.
 
 Example:
 HELPTEXT
@@ -141,6 +260,10 @@ multipleActionsError()
     printShortUsage "$1" >&2
     exit 2
 }
+needReadLock=
+transactionOwner=
+waitTimeout=
+transactionTimeout=3
 readonly DEFAULT_SCHEMA='KEY COLUMN ...'
 typeset -a schema=()
 typeset -a normalizedSchema=()
@@ -149,7 +272,9 @@ table=
 line=
 key=
 fallbackKey=
+preAction=
 action=
+postAction=
 typeset -a queriedColumns=()
 isOmitKey=
 outputFormat=
@@ -175,6 +300,14 @@ do
 			esac
 			shift
 			;;
+	--transactional|-t)		shift; preAction='startTransaction'; postAction='endTransaction'; transactionOwner="$$";;
+	--within-transaction)		shift; preAction='checkTransaction'; transactionOwner="$1";;
+	--start-read-transaction)	shift; [ "$action" ] && multipleActionsError "$0"; action='startTransaction'; needReadLock=t; transactionOwner="$1"; shift;;
+	--start-write-transaction)	shift; [ "$action" ] && multipleActionsError "$0"; action='startTransaction'; transactionOwner="$1"; shift;;
+	--end-transaction)		shift; [ "$action" ] && multipleActionsError "$0"; action='endTransaction'; transactionOwner="$1"; shift;;
+	--abort-write-transaction)	shift; [ "$action" ] && multipleActionsError "$0"; action='abortWriteTransaction'; transactionOwner="$1"; shift;;
+	--timeout)			shift; waitTimeout="$1"; shift;;
+	--transaction-timeout)		shift; transactionTimeout="$1"; shift;;
 	--schema|-s)	shift; schema=($1); shift
 			if [ ${#schema[@]} -eq 0 ]; then
 			    echo >&2 'ERROR: No schema passed.'
@@ -208,7 +341,7 @@ do
 			fi
 			;;
 	--drop|-D)	shift; [ "$action" ] && multipleActionsError "$0"; action='drop';;
-	--query|-q)	shift; [ "$action" ] && multipleActionsError "$0"; action='query'; key="$1"; shift
+	--query|-q)	shift; [ "$action" ] && multipleActionsError "$0"; action='query'; key="$1"; needReadLock=t; shift
 			if containsTab "$key"; then
 			    echo >&2 'ERROR: KEY cannot contain tab characters.'
 			    echo >&2
@@ -220,7 +353,7 @@ do
 			fi
 			;;
 	--query-keys|-k)
-			shift; [ "$action" ] && multipleActionsError "$0"; action='queryKeys';;
+			shift; [ "$action" ] && multipleActionsError "$0"; action='queryKeys'; needReadLock=t;;
 	--columns|-c)	shift
 			if [ "$1" = '*' ]; then
 			    isOmitKey=t
@@ -249,7 +382,7 @@ do
 			shift
 			table='dummy'	# Need to set this as it's mandatory for all other actions, but not used for unescape.
 			;;
-	--each|-e)	shift; [ "$action" -a "$action" != 'each' ] && multipleActionsError "$0"; action='each'; commandLines+=("$1"); shift;;
+	--each|-e)	shift; [ "$action" -a "$action" != 'each' ] && multipleActionsError "$0"; action='each'; needReadLock=t; commandLines+=("$1"); shift;;
 	--before)	shift; beforeCommands+=(${beforeCommands:+;} "$1"); shift;;
 	--after)	shift; afterCommands+=(${afterCommands:+;} "$1"); shift;;
 	--)		shift; break;;
@@ -270,6 +403,11 @@ elif [ ! "$table" ]; then
     echo >&2
     printShortUsage "$0" >&2
     exit 2
+fi
+if [ "$action" = unescape ]; then
+    # Need no transactions around unescaping.
+    preAction=
+    postAction=
 fi
 
 
@@ -499,11 +637,51 @@ queryKeys()
 }
 
 
+lockedCall()
+{
+    local scriptFilespec="${BASH_SOURCE[0]}"
+    local method="${1:?}"; shift
+    local mode=write; [ "$needReadLock" ] && mode=read
+    flock "$@" --conflict-exit-code 5 ${waitTimeout:+--timeout "$waitTimeout"} "$LOCK_FILESPEC" "$scriptFilespec" "$method" "$TABLE_FILESPEC" "$LOCK_FILESPEC" "$transactionOwner" "$mode"
+}
+startTransaction()
+{
+    SECONDS=0
+    local error
+    while :
+    do
+	error="$(lockedCall TX-START)" || exit $?
+	[ ! "$error" ] && break
+
+	if [ "$waitTimeout" ] && [ $SECONDS -ge $waitTimeout ]; then
+	    printf >&2 '%s\n' "$error"
+	    exit 5
+	fi
+
+	sleep 0.01
+    done
+}
+endTransaction()
+{
+    lockedCall TX-END
+}
+abortWriteTransaction()
+{
+    lockedCall TX-ABORT
+}
+checkTransaction()
+{
+    lockedCall TX-CHECK --shared
+}
+
+
+
 typeset -a IGNORE_HEADER_LINE_SED_ARGS=(-e '1{ /^#/b skipHeader }')
 
 readonly CONFIG_DIRSPEC="${baseDir}${namespace:+/}$namespace"
 [ -d "$CONFIG_DIRSPEC" ] || mkdir -p -- "$CONFIG_DIRSPEC" || { printf >&2 'ERROR: Could not initialize database store at %s!\n' "$CONFIG_DIRSPEC"; exit 1; }
 readonly TABLE_FILESPEC="${CONFIG_DIRSPEC}/$table"
+readonly LOCK_FILESPEC="${CONFIG_DIRSPEC}/.${table}.lock"
 
 if [ ${#queriedColumns[@]} -gt 0 ]; then
     if ! translateColumnNamesToIndices; then
@@ -515,4 +693,12 @@ if [ ${#queriedColumns[@]} -gt 0 ]; then
     fi
 fi
 
+if [ "$preAction" ]; then
+    "$preAction" || exit $?
+fi
 "$action"
+status=$?
+if [ "$postAction" ]; then
+    "$postAction"
+fi
+exit $status
