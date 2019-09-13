@@ -264,6 +264,13 @@ multipleActionsError()
     printShortUsage "$1" >&2
     exit 2
 }
+multipleTransactionsError()
+{
+    echo >&2 "ERROR: --transactional cannot be combined with the --start-read-transaction|--start-write-transaction|--within-transaction|--end-transaction|--abort-write-transaction set."
+    echo >&2
+    printShortUsage "$1" >&2
+    exit 2
+}
 needReadLock=
 transactionOwner=
 waitTimeout=
@@ -304,12 +311,12 @@ do
 			esac
 			shift
 			;;
-	--transactional|-t)		shift; preAction='startTransaction'; postAction='endTransaction'; transactionOwner="$$";;
-	--within-transaction)		shift; preAction='checkTransaction'; transactionOwner="$1";;
-	--start-read-transaction)	shift; [ "$action" ] && multipleActionsError "$0"; action='startTransaction'; needReadLock=t; transactionOwner="$1"; shift;;
-	--start-write-transaction)	shift; [ "$action" ] && multipleActionsError "$0"; action='startTransaction'; transactionOwner="$1"; shift;;
-	--end-transaction)		shift; [ "$action" ] && multipleActionsError "$0"; action='endTransaction'; transactionOwner="$1"; shift;;
-	--abort-write-transaction)	shift; [ "$action" ] && multipleActionsError "$0"; action='abortWriteTransaction'; transactionOwner="$1"; shift;;
+	--transactional|-t)		shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; preAction='startTransaction'; postAction='endTransaction'; transactionOwner="$$";;
+	--within-transaction)		shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; preAction='checkTransaction'; transactionOwner="$1";;
+	--start-read-transaction)	shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; [ "$action" ] && multipleActionsError "$0"; action='startTransaction'; needReadLock=t; transactionOwner="$1"; shift;;
+	--start-write-transaction)	shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; [ "$action" ] && multipleActionsError "$0"; action='startTransaction'; transactionOwner="$1"; shift;;
+	--end-transaction)		shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; [ "$action" ] && multipleActionsError "$0"; action='endTransaction'; transactionOwner="$1"; shift;;
+	--abort-write-transaction)	shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; [ "$action" ] && multipleActionsError "$0"; action='abortWriteTransaction'; transactionOwner="$1"; shift;;
 	--timeout)			shift; waitTimeout="$1"; shift;;
 	--transaction-timeout)		shift; transactionTimeout="$1"; shift;;
 	--schema|-s)	shift; schema=($1); shift
