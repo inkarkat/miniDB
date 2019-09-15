@@ -15,6 +15,7 @@ setup()
 
     miniDB "${ARGS[@]}" --start-write-transaction "$TX"
 }
+
 @test "one transaction update of a non-existing table with passed schema" {
     miniDB "${TX_ARGS[@]}" --update "P1	Bash	Johnny"
 
