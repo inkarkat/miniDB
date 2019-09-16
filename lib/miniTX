@@ -77,7 +77,6 @@ case "$method" in
 	if [ -e "$TABLE_FILESPEC" ]; then
 	    cat -- "$TABLE_FILESPEC" >> "$LOCK_FILESPEC"
 	fi
-	exit
 	;;
     TX-END)
 	if readLock; then
@@ -95,7 +94,6 @@ case "$method" in
 	    exit 6
 	fi
 	removeLock
-	exit
 	;;
     TX-ABORT)
 	if readLock; then
@@ -111,7 +109,6 @@ case "$method" in
 	    printf >&2 'Warning: Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
 	fi
 	removeLock
-	exit
 	;;
     TX-CHECK)
 	if readLock; then
@@ -130,7 +127,6 @@ case "$method" in
 	    printf >&2 'ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
 	    exit 6
 	fi
-	exit
 	;;
     *)
 	printf >&2 'ASSERT: Invalid method: %s\n' "$method"
