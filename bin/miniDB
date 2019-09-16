@@ -18,108 +18,6 @@
 set -o noglob
 shopt -qs extglob
 
-rollback()
-{
-    local recordLen="$(head -n 1 -- "$3" | wc --bytes)"
-    if cmp --silent --ignore-initial="${recordLen}:0" "$3" "$2"; then
-	return 99
-    else
-	tail -n +2 "$3" > "$2"
-    fi
-}
-removeLock()
-{
-    rm -f "$3"
-}
-case "$1" in
-    TX-START)
-	: ${NOW:=$(date +%s)}
-	if IFS=' ' read -r expiry mode owner < "$3"; then
-	    if [ $NOW -gt $expiry ]; then
-		diff=$((NOW - expiry))
-		diffPlural=s; [ $diff -eq 1 ] && diffPlural=
-		if rollback "$@"; then
-		    printf >&2 'Warning: Previous %s transaction by %s timed out %d second%s ago and has been rolled back.\n' "$mode" "$owner" "$diff" "$diffPlural"
-		else
-		    printf >&2 'Warning: Previous %s transaction by %s timed out %d second%s ago but did not do any changes.\n' "$mode" "$owner" "$diff" "$diffPlural"
-		fi
-	    else
-		if [ "$owner" = "$4" ]; then
-		    printf >&2 'ERROR: Another %s transaction by %s is already in progress.\n' "$mode" "$owner"
-		    exit 1
-		else
-		    printf 'Timed out while another %s transaction by %s is in progress.\n' "$mode" "$owner"
-		    exit 0
-		fi
-	    fi
-	fi
-	printf > "$3" '%s %s %s\n' "$((NOW + $6))" "$5" "$4"
-	if [ -e "$2" ]; then
-	    cat -- "$2" >> "$3"
-	fi
-	exit
-	;;
-    TX-END)
-	: ${NOW:=$(date +%s)}
-	if IFS=' ' read -r expiry mode owner < "$3"; then
-	    if [ "$owner" = "$4" ]; then
-		if [ $NOW -gt $expiry ]; then
-		    diff=$((NOW - expiry))
-		    diffPlural=s; [ $diff -eq 1 ] && diffPlural=
-		    printf >&2 'Warning: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"
-		fi
-	    else
-		printf >&2 'ERROR: Another transaction by %s has been started; any changes have been lost.\n' "$owner"
-		exit 6
-	    fi
-	else
-	    printf >&2 'ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
-	    removeLock "$@"
-	    exit 6
-	fi
-	removeLock "$@"
-	exit
-	;;
-    TX-ABORT)
-	if IFS=' ' read -r expiry mode owner < "$3"; then
-	    if [ "$owner" != "$4" ]; then
-		printf >&2 'Warning: Another transaction by %s has been started; any changes have been lost, anyway.\n' "$owner"
-		exit 0
-	    elif [ "$mode" != 'write' ]; then
-		echo >&2 'ERROR: Not in a write transaction.'
-		exit 2
-	    fi
-	    rollback "$@"
-	else
-	    printf >&2 'Warning: Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
-	fi
-	removeLock "$@"
-	exit
-	;;
-    TX-CHECK)
-	: ${NOW:=$(date +%s)}
-	if IFS=' ' read -r expiry mode owner < "$3"; then
-	    if [ "$owner" = "$4" ]; then
-		if [ $NOW -gt $expiry ]; then
-		    diff=$((NOW - expiry))
-		    diffPlural=s; [ $diff -eq 1 ] && diffPlural=
-		    case "$5" in
-			read)	printf >&2 'Warning: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural";;
-			write)	printf >&2 'ERROR: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"; exit 6;;
-		    esac
-		fi
-	    else
-		printf >&2 'ERROR: Another transaction by %s has been started; any changes have been lost.\n' "$owner"
-		exit 6
-	    fi
-	else
-	    printf >&2 'ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
-	    exit 6
-	fi
-	exit
-	;;
-esac
-
 baseDir="${XDG_CONFIG_HOME:-$HOME/.config}"
 printShortUsage()
 {
@@ -669,10 +567,11 @@ queryKeys()
 
 lockedCall()
 {
-    local scriptFilespec="${BASH_SOURCE[0]}"
+    local -r scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
+    [ -d "$scriptDir" ] || { echo >&2 "ERROR: Cannot determine script directory!"; exit 3; }
     local method="${1:?}"; shift
     local mode=write; [ "$needReadLock" ] && mode=read
-    flock "$@" --conflict-exit-code 5 ${waitTimeout:+--timeout "$waitTimeout"} "$LOCK_FILESPEC" "$scriptFilespec" "$method" "$TABLE_FILESPEC" "$LOCK_FILESPEC" "$transactionOwner" "$mode" "$transactionTimeout"
+    flock "$@" --conflict-exit-code 5 ${waitTimeout:+--timeout "$waitTimeout"} "$LOCK_FILESPEC" "${scriptDir}/../lib/miniTX" "$method" "$TABLE_FILESPEC" "$LOCK_FILESPEC" "$transactionOwner" "$mode" "$transactionTimeout"
 }
 startTransaction()
 {
