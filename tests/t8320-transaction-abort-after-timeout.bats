@@ -16,7 +16,7 @@ setup()
     let NOW+=5
     run miniDB --abort-write-transaction Trans1 --table "$BATS_TEST_NAME"
     [ $status -eq 0 ]
-    [ "$output" = "Warning: Another transaction by Trans2 has been started; any changes have been lost, anyway." ]
+    [ "$output" = "Warning: Another write transaction by Trans2 has been started; any changes have been lost, anyway." ]
 }
 
 @test "aborting after the updated transaction timed out and another one was started prints a warning" {
@@ -29,7 +29,7 @@ setup()
     let NOW+=5
     run miniDB --abort-write-transaction Trans1 --table "$BATS_TEST_NAME"
     [ $status -eq 0 ]
-    [ "$output" = "Warning: Another transaction by Trans2 has been started; any changes have been lost, anyway." ]
+    [ "$output" = "Warning: Another write transaction by Trans2 has been started; any changes have been lost, anyway." ]
 }
 
 @test "aborting after the transaction timed out and another one was completed prints a warning" {

@@ -64,5 +64,5 @@ setup()
 
     run miniDB --within-transaction Trans1 --table "$BATS_TEST_NAME" --query foo
     [ $status -eq 6 ]
-    [ "$output" = "ERROR: Another transaction by Trans2 has been started; any changes have been lost." ]
+    [ "$output" = "ERROR: Another read transaction by Trans2 has been started; any changes have been lost." ]
 }

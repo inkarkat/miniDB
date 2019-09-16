@@ -42,7 +42,7 @@ isLockExpired()
 }
 createLock()
 {
-    printf > "$LOCK_FILESPEC" '%s %s %s\n' "$((NOW + thisTransactionTimeout))" "$thisTransactionMode" "$thisTransactionOwner"
+    printf > "$LOCK_FILESPEC" '%s %s %s\n' "${thisTransactionExpiry:?}" "${thisTransactionMode:?}" "${thisTransactionOwner:?}"
     if [ -e "$TABLE_FILESPEC" ]; then
 	cat -- "$TABLE_FILESPEC" >> "$LOCK_FILESPEC"
     fi
@@ -60,19 +60,35 @@ removeLock()
 {
     rm -f "$LOCK_FILESPEC"
 }
+getTransactionDescription()
+{
+    if [ "$lockOwner" = '*' ]; then
+	printf 'shared %s transaction' "$lockMode"
+    else
+	printf '%s transaction by %s' "$lockMode" "$lockOwner"
+    fi
+}
 
 case "$method" in
     TX-START)
+	thisTransactionExpiry=$((NOW + thisTransactionTimeout))
 	if existsLock; then
 	    if isLockExpired; then
 		if rollback; then
-		    printf >&2 'Warning: Previous %s transaction by %s timed out %d second%s ago and has been rolled back.\n' "$lockMode" "$lockOwner" "$diff" "$diffPlural"
+		    printf >&2 'Warning: Previous %s timed out %d second%s ago and has been rolled back.\n' "$(getTransactionDescription)" "$diff" "$diffPlural"
 		else
-		    printf >&2 'Warning: Previous %s transaction by %s timed out %d second%s ago but did not do any changes.\n' "$lockMode" "$lockOwner" "$diff" "$diffPlural"
+		    printf >&2 'Warning: Previous %s timed out %d second%s ago but did not do any changes.\n' "$(getTransactionDescription)" "$diff" "$diffPlural"
 		fi
 	    else
-		if [ "$lockOwner" = "$thisTransactionOwner" ]; then
-		    printf >&2 'ERROR: Another %s transaction by %s is already in progress.\n' "$lockMode" "$lockOwner"
+		if [ "$lockMode" = 'read' -a "$thisTransactionMode" = 'read' -a $thisTransactionExpiry -le $lockExpiry ]; then
+			# This transaction does not prolong the existing lock of
+			# another read transaction(s). We can allow it. Set the
+			# owner to * indicate that this now is a shared set of
+			# read transactions.
+			thisTransactionOwner='*'
+			thisTransactionExpiry=$lockExpiry
+		elif [ "$lockOwner" = "$thisTransactionOwner" ]; then
+		    printf >&2 'ERROR: Another %s is already in progress.\n' "$(getTransactionDescription)"
 		    exit 1
 		else
 		    printf 'Timed out while another %s transaction by %s is in progress.\n' "$lockMode" "$lockOwner"
@@ -84,12 +100,16 @@ case "$method" in
 	;;
     TX-END)
 	if existsLock; then
-	    if [ "$lockOwner" = "$thisTransactionOwner" ]; then
+	    if [ "$lockOwner" = "$thisTransactionOwner" -o "$lockOwner" = '*' ]; then
 		if isLockExpired; then
-		    printf >&2 'Warning: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"
+		    if [ "$lockOwner" = '*' ]; then
+			printf >&2 'Warning: Shared %s transaction timed out %d second%s ago.\n' "$lockMode" "$diff" "$diffPlural"
+		    else
+			printf >&2 'Warning: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"
+		    fi
 		fi
 	    else
-		printf >&2 'ERROR: Another transaction by %s has been started; any changes have been lost.\n' "$lockOwner"
+		printf >&2 'ERROR: Another %s transaction by %s has been started; any changes have been lost.\n' "$lockMode" "$lockOwner"
 		exit 6
 	    fi
 	else
@@ -102,7 +122,7 @@ case "$method" in
     TX-ABORT)
 	if existsLock; then
 	    if [ "$lockOwner" != "$thisTransactionOwner" ]; then
-		printf >&2 'Warning: Another transaction by %s has been started; any changes have been lost, anyway.\n' "$lockOwner"
+		printf >&2 'Warning: Another %s has been started; any changes have been lost, anyway.\n' "$(getTransactionDescription)"
 		exit 0
 	    elif [ "$lockMode" != 'write' ]; then
 		echo >&2 'ERROR: Not in a write transaction.'
@@ -116,15 +136,21 @@ case "$method" in
 	;;
     TX-CHECK)
 	if existsLock; then
-	    if [ "$lockOwner" = "$thisTransactionOwner" ]; then
+	    if [ "$lockOwner" = "$thisTransactionOwner" -o \( "$lockOwner" = '*' -a "$thisTransactionMode" = 'read' \) ]; then
 		if isLockExpired; then
 		    case "$thisTransactionMode" in
-			read)	printf >&2 'Warning: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural";;
-			write)	printf >&2 'ERROR: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"; exit 6;;
+			read)
+			    shared=; [ "$lockOwner" = '*' ] && shared='shared'
+			    printf >&2 'Warning: Current %stransaction timed out %d second%s ago.\n' "${shared}${shared:+ }" "$diff" "$diffPlural"
+			    ;;
+			write)
+			    printf >&2 'ERROR: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"
+			    exit 6
+			    ;;
 		    esac
 		fi
 	    else
-		printf >&2 'ERROR: Another transaction by %s has been started; any changes have been lost.\n' "$lockOwner"
+		printf >&2 'ERROR: Another %s has been started; any changes have been lost.\n' "$(getTransactionDescription)"
 		exit 6
 	    fi
 	else
