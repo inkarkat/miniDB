@@ -26,7 +26,7 @@ thisTransactionTimeout="${1?}"; shift
 
 : ${NOW:=$(date +%s)}
 
-readLock()
+existsLock()
 {
     IFS=' ' read -r lockExpiry lockMode lockOwner < "$LOCK_FILESPEC"
 }
@@ -63,7 +63,7 @@ removeLock()
 
 case "$method" in
     TX-START)
-	if readLock; then
+	if existsLock; then
 	    if isLockExpired; then
 		if rollback; then
 		    printf >&2 'Warning: Previous %s transaction by %s timed out %d second%s ago and has been rolled back.\n' "$lockMode" "$lockOwner" "$diff" "$diffPlural"
@@ -83,7 +83,7 @@ case "$method" in
 	createLock
 	;;
     TX-END)
-	if readLock; then
+	if existsLock; then
 	    if [ "$lockOwner" = "$thisTransactionOwner" ]; then
 		if isLockExpired; then
 		    printf >&2 'Warning: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"
@@ -100,7 +100,7 @@ case "$method" in
 	removeLock
 	;;
     TX-ABORT)
-	if readLock; then
+	if existsLock; then
 	    if [ "$lockOwner" != "$thisTransactionOwner" ]; then
 		printf >&2 'Warning: Another transaction by %s has been started; any changes have been lost, anyway.\n' "$lockOwner"
 		exit 0
@@ -115,7 +115,7 @@ case "$method" in
 	removeLock
 	;;
     TX-CHECK)
-	if readLock; then
+	if existsLock; then
 	    if [ "$lockOwner" = "$thisTransactionOwner" ]; then
 		if isLockExpired; then
 		    case "$thisTransactionMode" in
