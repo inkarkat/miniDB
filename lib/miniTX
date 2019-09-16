@@ -40,21 +40,21 @@ removeLock()
 case "$method" in
     TX-START)
 	: ${NOW:=$(date +%s)}
-	if IFS=' ' read -r expiry mode owner < "$LOCK_FILESPEC"; then
-	    if [ $NOW -gt $expiry ]; then
-		diff=$((NOW - expiry))
+	if IFS=' ' read -r lockExpiry lockMode lockOwner < "$LOCK_FILESPEC"; then
+	    if [ $NOW -gt $lockExpiry ]; then
+		diff=$((NOW - lockExpiry))
 		diffPlural=s; [ $diff -eq 1 ] && diffPlural=
 		if rollback; then
-		    printf >&2 'Warning: Previous %s transaction by %s timed out %d second%s ago and has been rolled back.\n' "$mode" "$owner" "$diff" "$diffPlural"
+		    printf >&2 'Warning: Previous %s transaction by %s timed out %d second%s ago and has been rolled back.\n' "$lockMode" "$lockOwner" "$diff" "$diffPlural"
 		else
-		    printf >&2 'Warning: Previous %s transaction by %s timed out %d second%s ago but did not do any changes.\n' "$mode" "$owner" "$diff" "$diffPlural"
+		    printf >&2 'Warning: Previous %s transaction by %s timed out %d second%s ago but did not do any changes.\n' "$lockMode" "$lockOwner" "$diff" "$diffPlural"
 		fi
 	    else
-		if [ "$owner" = "$thisTransactionOwner" ]; then
-		    printf >&2 'ERROR: Another %s transaction by %s is already in progress.\n' "$mode" "$owner"
+		if [ "$lockOwner" = "$thisTransactionOwner" ]; then
+		    printf >&2 'ERROR: Another %s transaction by %s is already in progress.\n' "$lockMode" "$lockOwner"
 		    exit 1
 		else
-		    printf 'Timed out while another %s transaction by %s is in progress.\n' "$mode" "$owner"
+		    printf 'Timed out while another %s transaction by %s is in progress.\n' "$lockMode" "$lockOwner"
 		    exit 0
 		fi
 	    fi
@@ -67,15 +67,15 @@ case "$method" in
 	;;
     TX-END)
 	: ${NOW:=$(date +%s)}
-	if IFS=' ' read -r expiry mode owner < "$LOCK_FILESPEC"; then
-	    if [ "$owner" = "$thisTransactionOwner" ]; then
-		if [ $NOW -gt $expiry ]; then
-		    diff=$((NOW - expiry))
+	if IFS=' ' read -r lockExpiry lockMode lockOwner < "$LOCK_FILESPEC"; then
+	    if [ "$lockOwner" = "$thisTransactionOwner" ]; then
+		if [ $NOW -gt $lockExpiry ]; then
+		    diff=$((NOW - lockExpiry))
 		    diffPlural=s; [ $diff -eq 1 ] && diffPlural=
 		    printf >&2 'Warning: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"
 		fi
 	    else
-		printf >&2 'ERROR: Another transaction by %s has been started; any changes have been lost.\n' "$owner"
+		printf >&2 'ERROR: Another transaction by %s has been started; any changes have been lost.\n' "$lockOwner"
 		exit 6
 	    fi
 	else
@@ -87,11 +87,11 @@ case "$method" in
 	exit
 	;;
     TX-ABORT)
-	if IFS=' ' read -r expiry mode owner < "$LOCK_FILESPEC"; then
-	    if [ "$owner" != "$thisTransactionOwner" ]; then
-		printf >&2 'Warning: Another transaction by %s has been started; any changes have been lost, anyway.\n' "$owner"
+	if IFS=' ' read -r lockExpiry lockMode lockOwner < "$LOCK_FILESPEC"; then
+	    if [ "$lockOwner" != "$thisTransactionOwner" ]; then
+		printf >&2 'Warning: Another transaction by %s has been started; any changes have been lost, anyway.\n' "$lockOwner"
 		exit 0
-	    elif [ "$mode" != 'write' ]; then
+	    elif [ "$lockMode" != 'write' ]; then
 		echo >&2 'ERROR: Not in a write transaction.'
 		exit 2
 	    fi
@@ -104,10 +104,10 @@ case "$method" in
 	;;
     TX-CHECK)
 	: ${NOW:=$(date +%s)}
-	if IFS=' ' read -r expiry mode owner < "$LOCK_FILESPEC"; then
-	    if [ "$owner" = "$thisTransactionOwner" ]; then
-		if [ $NOW -gt $expiry ]; then
-		    diff=$((NOW - expiry))
+	if IFS=' ' read -r lockExpiry lockMode lockOwner < "$LOCK_FILESPEC"; then
+	    if [ "$lockOwner" = "$thisTransactionOwner" ]; then
+		if [ $NOW -gt $lockExpiry ]; then
+		    diff=$((NOW - lockExpiry))
 		    diffPlural=s; [ $diff -eq 1 ] && diffPlural=
 		    case "$thisTransactionMode" in
 			read)	printf >&2 'Warning: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural";;
@@ -115,7 +115,7 @@ case "$method" in
 		    esac
 		fi
 	    else
-		printf >&2 'ERROR: Another transaction by %s has been started; any changes have been lost.\n' "$owner"
+		printf >&2 'ERROR: Another transaction by %s has been started; any changes have been lost.\n' "$lockOwner"
 		exit 6
 	    fi
 	else
