@@ -12,6 +12,11 @@ clear_lock()
     rm -f "${XDG_CONFIG_HOME}/.${1:?}.lock"
 }
 
+lock_exists()
+{
+    [ -e "${XDG_CONFIG_HOME}/.${1:?}.lock" ]
+}
+
 table_exists()
 {
     [ -e "${XDG_CONFIG_HOME}/${1:?}" ]

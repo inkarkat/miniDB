@@ -5,6 +5,7 @@ load temp_database
 setup()
 {
     TX=Trans1
+    clear_lock "$BATS_TEST_NAME"
 }
 
 @test "aborting without any action works" {
@@ -34,7 +35,7 @@ setup()
     assert_table_row "$BATS_TEST_NAME" \$ "foo	The Foo is here	42"
 }
 
-@test "aborting after update and additon loses all changes" {
+@test "aborting after update and addition loses all changes" {
     initialize_table "$BATS_TEST_NAME" from one-entry
     miniDB --start-write-transaction "$TX" --table "$BATS_TEST_NAME"
     miniDB --within-transaction "$TX" --table "$BATS_TEST_NAME" --update "foo	A Foo has been updated	43"

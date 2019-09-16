@@ -5,6 +5,7 @@ load temp_database
 setup()
 {
     TX=Trans1
+    clear_lock "$BATS_TEST_NAME"
 }
 
 @test "aborting a read transaction causes error" {
