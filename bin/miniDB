@@ -69,10 +69,7 @@ case "$1" in
 		    printf >&2 'Warning: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"
 		fi
 	    else
-		case "$5" in
-		    read)	printf >&2 'ERROR: Another transaction by %s has been started.\n' "$owner";;
-		    write)	printf >&2 'ERROR: Another transaction by %s has been started; any changes have been lost.\n' "$owner";;
-		esac
+		printf >&2 'ERROR: Another transaction by %s has been started; any changes have been lost.\n' "$owner"
 		exit 6
 	    fi
 	else

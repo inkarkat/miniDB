@@ -26,3 +26,14 @@ setup()
     [ $status -eq 6 ]
     [ "$output" = "ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed." ]
 }
+
+@test "ending a transaction after it timed out and other one has been started causes error" {
+    initialize_table "$BATS_TEST_NAME" from one-entry
+    miniDB --start-read-transaction Trans1 --table "$BATS_TEST_NAME"
+    let NOW+=5
+    miniDB --start-read-transaction Trans2 --table "$BATS_TEST_NAME"
+
+    run miniDB --end-transaction Trans1 --table "$BATS_TEST_NAME"
+    [ $status -eq 6 ]
+    [ "$output" = "ERROR: Another transaction by Trans2 has been started; any changes have been lost." ]
+}
