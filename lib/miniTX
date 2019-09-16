@@ -24,6 +24,8 @@ thisTransactionOwner="${1:?}"; shift
 thisTransactionMode="${1:?}"; shift
 thisTransactionTimeout="${1?}"; shift
 
+: ${NOW:=$(date +%s)}
+
 rollback()
 {
     local recordLen="$(head -n 1 -- "$LOCK_FILESPEC" | wc --bytes)"
@@ -39,7 +41,6 @@ removeLock()
 }
 case "$method" in
     TX-START)
-	: ${NOW:=$(date +%s)}
 	if IFS=' ' read -r lockExpiry lockMode lockOwner < "$LOCK_FILESPEC"; then
 	    if [ $NOW -gt $lockExpiry ]; then
 		diff=$((NOW - lockExpiry))
@@ -66,7 +67,6 @@ case "$method" in
 	exit
 	;;
     TX-END)
-	: ${NOW:=$(date +%s)}
 	if IFS=' ' read -r lockExpiry lockMode lockOwner < "$LOCK_FILESPEC"; then
 	    if [ "$lockOwner" = "$thisTransactionOwner" ]; then
 		if [ $NOW -gt $lockExpiry ]; then
@@ -103,7 +103,6 @@ case "$method" in
 	exit
 	;;
     TX-CHECK)
-	: ${NOW:=$(date +%s)}
 	if IFS=' ' read -r lockExpiry lockMode lockOwner < "$LOCK_FILESPEC"; then
 	    if [ "$lockOwner" = "$thisTransactionOwner" ]; then
 		if [ $NOW -gt $lockExpiry ]; then
