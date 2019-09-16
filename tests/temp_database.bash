@@ -17,6 +17,11 @@ lock_exists()
     [ -e "${XDG_CONFIG_HOME}/.${1:?}.lock" ]
 }
 
+lock_is_shared()
+{
+    head -n 1 "${XDG_CONFIG_HOME}/.${1:?}.lock" | grep --quiet ' \*$'
+}
+
 table_exists()
 {
     [ -e "${XDG_CONFIG_HOME}/${1:?}" ]

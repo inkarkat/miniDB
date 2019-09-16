@@ -82,10 +82,13 @@ case "$method" in
 	    else
 		if [ "$lockMode" = 'read' -a "$thisTransactionMode" = 'read' -a $thisTransactionExpiry -le $lockExpiry ]; then
 			# This transaction does not prolong the existing lock of
-			# another read transaction(s). We can allow it. Set the
-			# owner to * indicate that this now is a shared set of
-			# read transactions.
-			thisTransactionOwner='*'
+			# another read transaction(s). We can allow it.
+			if [ "$lockOwner" != "$thisTransactionOwner" ]; then
+			    # If the previous transaction is not ours, set the
+			    # owner to * indicate that this now is a shared set
+			    # of read transactions.
+			    thisTransactionOwner='*'
+			fi
 			thisTransactionExpiry=$lockExpiry
 		elif [ "$lockOwner" = "$thisTransactionOwner" ]; then
 		    printf >&2 'ERROR: Another %s is already in progress.\n' "$(getTransactionDescription)"

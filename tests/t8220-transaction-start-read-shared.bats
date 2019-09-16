@@ -15,24 +15,29 @@ setup()
     let NOW+=4
     run miniDB --start-read-transaction Trans2 --table "$BATS_TEST_NAME"
     [ "$output" = "Warning: Previous read transaction by Trans1 timed out 1 second ago but did not do any changes." ]
+    ! lock_is_shared "$BATS_TEST_NAME"
 }
 
-@test "when the owner immediately starts another read transaction, this becomes a shared one" {
+@test "when the owner immediately starts another read transaction, this is allowed" {
     miniDB --start-read-transaction Trans1 --table "$BATS_TEST_NAME"
     miniDB --within-transaction Trans1 --table "$BATS_TEST_NAME" --query foo
 
     miniDB --start-read-transaction Trans1 --table "$BATS_TEST_NAME"
+    ! lock_is_shared "$BATS_TEST_NAME"
 }
 
-@test "when the owner starts another read transaction whose timeout is not longer than the original one, this becomes a shared one" {
+@test "when the owner starts another read transaction whose timeout is not longer than the original one, this is allowed" {
     miniDB --transaction-timeout 6 --start-read-transaction Trans1 --table "$BATS_TEST_NAME"
     miniDB --within-transaction Trans1 --table "$BATS_TEST_NAME" --query foo
+    ! lock_is_shared "$BATS_TEST_NAME"
 
     let NOW+=1
     miniDB --transaction-timeout 3 --start-read-transaction Trans1 --table "$BATS_TEST_NAME"
+    ! lock_is_shared "$BATS_TEST_NAME"
 
     let NOW+=1
     miniDB --transaction-timeout 4 --start-read-transaction Trans1 --table "$BATS_TEST_NAME"
+    ! lock_is_shared "$BATS_TEST_NAME"
 }
 
 @test "when the owner starts another read transaction whose timeout is longer than the original one, this returns 1" {
@@ -45,18 +50,21 @@ setup()
     [ "$output" = "ERROR: Another read transaction by Trans1 is already in progress." ]
 }
 
-@test "when the owner starts another read transaction whose timeout is not longer than the original one, this becomes a shared one" {
+@test "when starting a new read transaction whose timeout is not longer than the original one, this becomes a shared one" {
     miniDB --transaction-timeout 6 --start-read-transaction Trans1 --table "$BATS_TEST_NAME"
     miniDB --within-transaction Trans1 --table "$BATS_TEST_NAME" --query foo
+    ! lock_is_shared "$BATS_TEST_NAME"
 
     let NOW+=1
     miniDB --transaction-timeout 3 --start-read-transaction Trans2 --table "$BATS_TEST_NAME"
+    lock_is_shared "$BATS_TEST_NAME"
 
     let NOW+=1
     miniDB --transaction-timeout 4 --start-read-transaction Trans3 --table "$BATS_TEST_NAME"
+    lock_is_shared "$BATS_TEST_NAME"
 }
 
-@test "when the owner starts a read transaction whose timeout is longer then another's one and before another's read one times out, the attempt times out" {
+@test "when starting a new read transaction whose timeout is longer then another's one and before another's read one times out, the attempt times out" {
     miniDB --start-read-transaction Trans1 --table "$BATS_TEST_NAME"
     miniDB --within-transaction Trans1 --table "$BATS_TEST_NAME" --query foo
 
