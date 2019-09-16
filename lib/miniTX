@@ -26,6 +26,10 @@ thisTransactionTimeout="${1?}"; shift
 
 : ${NOW:=$(date +%s)}
 
+readLock()
+{
+    IFS=' ' read -r lockExpiry lockMode lockOwner < "$LOCK_FILESPEC"
+}
 rollback()
 {
     local recordLen="$(head -n 1 -- "$LOCK_FILESPEC" | wc --bytes)"
@@ -39,9 +43,10 @@ removeLock()
 {
     rm -f "$LOCK_FILESPEC"
 }
+
 case "$method" in
     TX-START)
-	if IFS=' ' read -r lockExpiry lockMode lockOwner < "$LOCK_FILESPEC"; then
+	if readLock; then
 	    if [ $NOW -gt $lockExpiry ]; then
 		diff=$((NOW - lockExpiry))
 		diffPlural=s; [ $diff -eq 1 ] && diffPlural=
@@ -67,7 +72,7 @@ case "$method" in
 	exit
 	;;
     TX-END)
-	if IFS=' ' read -r lockExpiry lockMode lockOwner < "$LOCK_FILESPEC"; then
+	if readLock; then
 	    if [ "$lockOwner" = "$thisTransactionOwner" ]; then
 		if [ $NOW -gt $lockExpiry ]; then
 		    diff=$((NOW - lockExpiry))
@@ -87,7 +92,7 @@ case "$method" in
 	exit
 	;;
     TX-ABORT)
-	if IFS=' ' read -r lockExpiry lockMode lockOwner < "$LOCK_FILESPEC"; then
+	if readLock; then
 	    if [ "$lockOwner" != "$thisTransactionOwner" ]; then
 		printf >&2 'Warning: Another transaction by %s has been started; any changes have been lost, anyway.\n' "$lockOwner"
 		exit 0
@@ -103,7 +108,7 @@ case "$method" in
 	exit
 	;;
     TX-CHECK)
-	if IFS=' ' read -r lockExpiry lockMode lockOwner < "$LOCK_FILESPEC"; then
+	if readLock; then
 	    if [ "$lockOwner" = "$thisTransactionOwner" ]; then
 		if [ $NOW -gt $lockExpiry ]; then
 		    diff=$((NOW - lockExpiry))
