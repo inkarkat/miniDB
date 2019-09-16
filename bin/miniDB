@@ -27,6 +27,10 @@ rollback()
 	tail -n +2 "$3" > "$2"
     fi
 }
+removeLock()
+{
+    rm -f "$3"
+}
 case "$1" in
     TX-START)
 	: ${NOW:=$(date +%s)}
@@ -70,10 +74,10 @@ case "$1" in
 	    fi
 	else
 	    printf >&2 'ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
-	    rm -f "$3"
+	    removeLock "$@"
 	    exit 6
 	fi
-	rm -f "$3"
+	removeLock "$@"
 	exit
 	;;
     TX-ABORT)
@@ -89,7 +93,7 @@ case "$1" in
 	else
 	    printf >&2 'Warning: Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
 	fi
-	rm -f "$3"
+	removeLock "$@"
 	exit
 	;;
     TX-CHECK)
