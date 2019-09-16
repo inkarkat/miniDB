@@ -679,7 +679,7 @@ startTransaction()
 	error="$(lockedCall TX-START)" || exit $?
 	[ ! "$error" ] && break
 
-	if [ "$waitTimeout" ] && [ $SECONDS -ge $waitTimeout ]; then
+	if [ -n "$NOW" -o \( -n "$waitTimeout" -a $SECONDS -ge $waitTimeout \) ]; then
 	    printf >&2 '%s\n' "$error"
 	    exit 5
 	fi
