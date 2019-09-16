@@ -40,6 +40,13 @@ isLockExpired()
 	return 1
     fi
 }
+createLock()
+{
+    printf > "$LOCK_FILESPEC" '%s %s %s\n' "$((NOW + thisTransactionTimeout))" "$thisTransactionMode" "$thisTransactionOwner"
+    if [ -e "$TABLE_FILESPEC" ]; then
+	cat -- "$TABLE_FILESPEC" >> "$LOCK_FILESPEC"
+    fi
+}
 rollback()
 {
     local recordLen="$(head -n 1 -- "$LOCK_FILESPEC" | wc --bytes)"
@@ -73,10 +80,7 @@ case "$method" in
 		fi
 	    fi
 	fi
-	printf > "$LOCK_FILESPEC" '%s %s %s\n' "$((NOW + thisTransactionTimeout))" "$thisTransactionMode" "$thisTransactionOwner"
-	if [ -e "$TABLE_FILESPEC" ]; then
-	    cat -- "$TABLE_FILESPEC" >> "$LOCK_FILESPEC"
-	fi
+	createLock
 	;;
     TX-END)
 	if readLock; then
