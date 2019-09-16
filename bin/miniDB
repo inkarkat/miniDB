@@ -70,6 +70,9 @@ case "$1" in
 	    if [ "$owner" != "$4" ]; then
 		printf >&2 'Warning: Another transaction by %s has been started; any changes have been lost, anyway.\n' "$owner"
 		exit 0
+	    elif [ "$mode" != 'write' ]; then
+		echo >&2 'ERROR: Not in a write transaction.'
+		exit 2
 	    fi
 	    rollback "$@"
 	else

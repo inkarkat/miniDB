@@ -7,6 +7,23 @@ setup()
     TX=Trans1
 }
 
+@test "aborting without any action works" {
+    initialize_table "$BATS_TEST_NAME" from one-entry
+    miniDB --start-write-transaction "$TX" --table "$BATS_TEST_NAME"
+    miniDB --abort-write-transaction "$TX" --table "$BATS_TEST_NAME"
+
+    assert_table_row "$BATS_TEST_NAME" \$ "foo	The Foo is here	42"
+}
+
+@test "aborting after read action works" {
+    initialize_table "$BATS_TEST_NAME" from one-entry
+    miniDB --start-write-transaction "$TX" --table "$BATS_TEST_NAME"
+    miniDB --within-transaction "$TX" --table "$BATS_TEST_NAME" --query foo
+    miniDB --abort-write-transaction "$TX" --table "$BATS_TEST_NAME"
+
+    assert_table_row "$BATS_TEST_NAME" \$ "foo	The Foo is here	42"
+}
+
 @test "aborting after an update loses that update" {
     initialize_table "$BATS_TEST_NAME" from one-entry
     miniDB --start-write-transaction "$TX" --table "$BATS_TEST_NAME"
