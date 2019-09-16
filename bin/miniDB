@@ -29,10 +29,10 @@ rollback()
 }
 case "$1" in
     TX-START)
-	now="$(date +%s)"
+	: ${NOW:=$(date +%s)}
 	if IFS=' ' read -r expiry mode owner < "$3"; then
-	    if [ $now -gt $expiry ]; then
-		diff=$((now - expiry))
+	    if [ $NOW -gt $expiry ]; then
+		diff=$((NOW - expiry))
 		diffPlural=s; [ $diff -eq 1 ] && diffPlural=
 		if rollback "$@"; then
 		    printf >&2 'Warning: Previous transaction by %s timed out %d second%s ago and has been rolled back.\n' "$owner" "$diff" "$diffPlural"
@@ -49,18 +49,18 @@ case "$1" in
 		fi
 	    fi
 	fi
-	printf > "$3" '%s %s %s\n' "$((now + $6))" "$5" "$4"
+	printf > "$3" '%s %s %s\n' "$((NOW + $6))" "$5" "$4"
 	if [ -e "$2" ]; then
 	    cat -- "$2" >> "$3"
 	fi
 	exit
 	;;
     TX-END)
-	now="$(date +%s)"
+	: ${NOW:=$(date +%s)}
 	if IFS=' ' read -r expiry mode owner < "$3"; then
 	    if [ "$owner" = "$4" ]; then
-		if [ $now -gt $expiry ]; then
-		    diff=$((now - expiry))
+		if [ $NOW -gt $expiry ]; then
+		    diff=$((NOW - expiry))
 		    diffPlural=s; [ $diff -eq 1 ] && diffPlural=
 		    printf >&2 'Warning: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"
 		fi
@@ -93,11 +93,11 @@ case "$1" in
 	exit
 	;;
     TX-CHECK)
-	now="$(date +%s)"
+	: ${NOW:=$(date +%s)}
 	if IFS=' ' read -r expiry mode owner < "$3"; then
 	    if [ "$owner" = "$4" ]; then
-		if [ $now -gt $expiry ]; then
-		    diff=$((now - expiry))
+		if [ $NOW -gt $expiry ]; then
+		    diff=$((NOW - expiry))
 		    diffPlural=s; [ $diff -eq 1 ] && diffPlural=
 		    case "$5" in
 			read)	printf >&2 'Warning: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural";;
