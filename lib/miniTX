@@ -30,6 +30,16 @@ readLock()
 {
     IFS=' ' read -r lockExpiry lockMode lockOwner < "$LOCK_FILESPEC"
 }
+isLockExpired()
+{
+    if [ $NOW -gt $lockExpiry ]; then
+	diff=$((NOW - lockExpiry))
+	diffPlural=s; [ $diff -eq 1 ] && diffPlural=
+	return 0
+    else
+	return 1
+    fi
+}
 rollback()
 {
     local recordLen="$(head -n 1 -- "$LOCK_FILESPEC" | wc --bytes)"
@@ -47,9 +57,7 @@ removeLock()
 case "$method" in
     TX-START)
 	if readLock; then
-	    if [ $NOW -gt $lockExpiry ]; then
-		diff=$((NOW - lockExpiry))
-		diffPlural=s; [ $diff -eq 1 ] && diffPlural=
+	    if isLockExpired; then
 		if rollback; then
 		    printf >&2 'Warning: Previous %s transaction by %s timed out %d second%s ago and has been rolled back.\n' "$lockMode" "$lockOwner" "$diff" "$diffPlural"
 		else
@@ -74,9 +82,7 @@ case "$method" in
     TX-END)
 	if readLock; then
 	    if [ "$lockOwner" = "$thisTransactionOwner" ]; then
-		if [ $NOW -gt $lockExpiry ]; then
-		    diff=$((NOW - lockExpiry))
-		    diffPlural=s; [ $diff -eq 1 ] && diffPlural=
+		if isLockExpired; then
 		    printf >&2 'Warning: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"
 		fi
 	    else
@@ -110,9 +116,7 @@ case "$method" in
     TX-CHECK)
 	if readLock; then
 	    if [ "$lockOwner" = "$thisTransactionOwner" ]; then
-		if [ $NOW -gt $lockExpiry ]; then
-		    diff=$((NOW - lockExpiry))
-		    diffPlural=s; [ $diff -eq 1 ] && diffPlural=
+		if isLockExpired; then
 		    case "$thisTransactionMode" in
 			read)	printf >&2 'Warning: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural";;
 			write)	printf >&2 'ERROR: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"; exit 6;;
