@@ -17,33 +17,40 @@
 set -o noglob
 shopt -qs extglob
 
+method="${1:?}"; shift
+TABLE_FILESPEC="${1:?}"; shift
+LOCK_FILESPEC="${1:?}"; shift
+thisTransactionOwner="${1:?}"; shift
+thisTransactionMode="${1:?}"; shift
+thisTransactionTimeout="${1?}"; shift
+
 rollback()
 {
-    local recordLen="$(head -n 1 -- "$3" | wc --bytes)"
-    if cmp --silent --ignore-initial="${recordLen}:0" "$3" "$2"; then
+    local recordLen="$(head -n 1 -- "$LOCK_FILESPEC" | wc --bytes)"
+    if cmp --silent --ignore-initial="${recordLen}:0" "$LOCK_FILESPEC" "$TABLE_FILESPEC"; then
 	return 99
     else
-	tail -n +2 "$3" > "$2"
+	tail -n +2 "$LOCK_FILESPEC" > "$TABLE_FILESPEC"
     fi
 }
 removeLock()
 {
-    rm -f "$3"
+    rm -f "$LOCK_FILESPEC"
 }
-case "$1" in
+case "$method" in
     TX-START)
 	: ${NOW:=$(date +%s)}
-	if IFS=' ' read -r expiry mode owner < "$3"; then
+	if IFS=' ' read -r expiry mode owner < "$LOCK_FILESPEC"; then
 	    if [ $NOW -gt $expiry ]; then
 		diff=$((NOW - expiry))
 		diffPlural=s; [ $diff -eq 1 ] && diffPlural=
-		if rollback "$@"; then
+		if rollback; then
 		    printf >&2 'Warning: Previous %s transaction by %s timed out %d second%s ago and has been rolled back.\n' "$mode" "$owner" "$diff" "$diffPlural"
 		else
 		    printf >&2 'Warning: Previous %s transaction by %s timed out %d second%s ago but did not do any changes.\n' "$mode" "$owner" "$diff" "$diffPlural"
 		fi
 	    else
-		if [ "$owner" = "$4" ]; then
+		if [ "$owner" = "$thisTransactionOwner" ]; then
 		    printf >&2 'ERROR: Another %s transaction by %s is already in progress.\n' "$mode" "$owner"
 		    exit 1
 		else
@@ -52,16 +59,16 @@ case "$1" in
 		fi
 	    fi
 	fi
-	printf > "$3" '%s %s %s\n' "$((NOW + $6))" "$5" "$4"
-	if [ -e "$2" ]; then
-	    cat -- "$2" >> "$3"
+	printf > "$LOCK_FILESPEC" '%s %s %s\n' "$((NOW + thisTransactionTimeout))" "$thisTransactionMode" "$thisTransactionOwner"
+	if [ -e "$TABLE_FILESPEC" ]; then
+	    cat -- "$TABLE_FILESPEC" >> "$LOCK_FILESPEC"
 	fi
 	exit
 	;;
     TX-END)
 	: ${NOW:=$(date +%s)}
-	if IFS=' ' read -r expiry mode owner < "$3"; then
-	    if [ "$owner" = "$4" ]; then
+	if IFS=' ' read -r expiry mode owner < "$LOCK_FILESPEC"; then
+	    if [ "$owner" = "$thisTransactionOwner" ]; then
 		if [ $NOW -gt $expiry ]; then
 		    diff=$((NOW - expiry))
 		    diffPlural=s; [ $diff -eq 1 ] && diffPlural=
@@ -73,36 +80,36 @@ case "$1" in
 	    fi
 	else
 	    printf >&2 'ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
-	    removeLock "$@"
+	    removeLock
 	    exit 6
 	fi
-	removeLock "$@"
+	removeLock
 	exit
 	;;
     TX-ABORT)
-	if IFS=' ' read -r expiry mode owner < "$3"; then
-	    if [ "$owner" != "$4" ]; then
+	if IFS=' ' read -r expiry mode owner < "$LOCK_FILESPEC"; then
+	    if [ "$owner" != "$thisTransactionOwner" ]; then
 		printf >&2 'Warning: Another transaction by %s has been started; any changes have been lost, anyway.\n' "$owner"
 		exit 0
 	    elif [ "$mode" != 'write' ]; then
 		echo >&2 'ERROR: Not in a write transaction.'
 		exit 2
 	    fi
-	    rollback "$@"
+	    rollback
 	else
 	    printf >&2 'Warning: Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
 	fi
-	removeLock "$@"
+	removeLock
 	exit
 	;;
     TX-CHECK)
 	: ${NOW:=$(date +%s)}
-	if IFS=' ' read -r expiry mode owner < "$3"; then
-	    if [ "$owner" = "$4" ]; then
+	if IFS=' ' read -r expiry mode owner < "$LOCK_FILESPEC"; then
+	    if [ "$owner" = "$thisTransactionOwner" ]; then
 		if [ $NOW -gt $expiry ]; then
 		    diff=$((NOW - expiry))
 		    diffPlural=s; [ $diff -eq 1 ] && diffPlural=
-		    case "$5" in
+		    case "$thisTransactionMode" in
 			read)	printf >&2 'Warning: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural";;
 			write)	printf >&2 'ERROR: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"; exit 6;;
 		    esac
@@ -116,5 +123,9 @@ case "$1" in
 	    exit 6
 	fi
 	exit
+	;;
+    *)
+	printf >&2 'ASSERT: Invalid method: %s\n' "$method"
+	exit 2
 	;;
 esac
