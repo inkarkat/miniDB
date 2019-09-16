@@ -14,7 +14,7 @@ setup()
 
     let NOW+=4
     run miniDB --start-write-transaction Trans2 --table "$BATS_TEST_NAME"
-    [ "$output" = "Warning: Previous transaction by Trans1 timed out 1 second ago but did not do any changes." ]
+    [ "$output" = "Warning: Previous write transaction by Trans1 timed out 1 second ago but did not do any changes." ]
 }
 
 @test "when starting a new transaction, a previous updated transaction that timed out prints a warning" {
@@ -23,7 +23,7 @@ setup()
 
     let NOW+=6
     run miniDB --start-write-transaction Trans2 --table "$BATS_TEST_NAME"
-    [ "$output" = "Warning: Previous transaction by Trans1 timed out 3 seconds ago and has been rolled back." ]
+    [ "$output" = "Warning: Previous write transaction by Trans1 timed out 3 seconds ago and has been rolled back." ]
 }
 
 @test "when the owner starts another transaction after his previous one timed out, a warning is printed" {
@@ -32,7 +32,7 @@ setup()
 
     let NOW+=5
     run miniDB --start-write-transaction Trans1 --table "$BATS_TEST_NAME"
-    [ "$output" = "Warning: Previous transaction by Trans1 timed out 2 seconds ago and has been rolled back." ]
+    [ "$output" = "Warning: Previous write transaction by Trans1 timed out 2 seconds ago and has been rolled back." ]
 }
 
 @test "when the owner starts another transaction before his previous one times out, this returns 1" {

@@ -39,9 +39,9 @@ case "$1" in
 		diff=$((NOW - expiry))
 		diffPlural=s; [ $diff -eq 1 ] && diffPlural=
 		if rollback "$@"; then
-		    printf >&2 'Warning: Previous transaction by %s timed out %d second%s ago and has been rolled back.\n' "$owner" "$diff" "$diffPlural"
+		    printf >&2 'Warning: Previous %s transaction by %s timed out %d second%s ago and has been rolled back.\n' "$mode" "$owner" "$diff" "$diffPlural"
 		else
-		    printf >&2 'Warning: Previous transaction by %s timed out %d second%s ago but did not do any changes.\n' "$owner" "$diff" "$diffPlural"
+		    printf >&2 'Warning: Previous %s transaction by %s timed out %d second%s ago but did not do any changes.\n' "$mode" "$owner" "$diff" "$diffPlural"
 		fi
 	    else
 		if [ "$owner" = "$4" ]; then
@@ -69,7 +69,10 @@ case "$1" in
 		    printf >&2 'Warning: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"
 		fi
 	    else
-		printf >&2 'ERROR: Another transaction by %s has been started; any changes have been lost.\n' "$owner"
+		case "$5" in
+		    read)	printf >&2 'ERROR: Another transaction by %s has been started.\n' "$owner";;
+		    write)	printf >&2 'ERROR: Another transaction by %s has been started; any changes have been lost.\n' "$owner";;
+		esac
 		exit 6
 	    fi
 	else
