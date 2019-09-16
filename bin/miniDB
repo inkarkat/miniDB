@@ -20,7 +20,12 @@ shopt -qs extglob
 
 rollback()
 {
-    tail -n +2 "$3" > "$2"
+    local recordLen="$(head -n 1 -- "$3" | wc --bytes)"
+    if cmp --silent --ignore-initial="${recordLen}:0" "$3" "$2"; then
+	return 99
+    else
+	tail -n +2 "$3" > "$2"
+    fi
 }
 case "$1" in
     TX-START)
@@ -29,8 +34,11 @@ case "$1" in
 	    if [ $now -gt $expiry ]; then
 		diff=$((now - expiry))
 		diffPlural=s; [ $diff -eq 1 ] && diffPlural=
-		rollback "$@"
-		printf >&2 'Warning: Previous transaction by %s timed out %d second%s ago and has been rolled back.\n' "$owner" "$diff" "$diffPlural"
+		if rollback "$@"; then
+		    printf >&2 'Warning: Previous transaction by %s timed out %d second%s ago and has been rolled back.\n' "$owner" "$diff" "$diffPlural"
+		else
+		    printf >&2 'Warning: Previous transaction by %s timed out %d second%s ago but did not do any changes.\n' "$owner" "$diff" "$diffPlural"
+		fi
 	    else
 		if [ "$owner" = "$4" ]; then
 		    printf >&2 'ERROR: Another %s transaction by %s is already in progress.\n' "$mode" "$owner"

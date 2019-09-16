@@ -8,7 +8,18 @@ setup()
     clear_lock "$BATS_TEST_NAME"
 }
 
-@test "aborting after the transaction timed out and another one was started prints a warning" {
+@test "aborting after the started transaction timed out and another one was started prints a warning" {
+    miniDB --start-write-transaction Trans1 --transaction-timeout 0 --table "$BATS_TEST_NAME"
+    run miniDB --start-write-transaction Trans2 --transaction-timeout 3 --table "$BATS_TEST_NAME"
+    [ "$output" = "Warning: Previous transaction by Trans1 timed out 1 second ago but did not do any changes." ]
+
+    run miniDB --abort-write-transaction Trans1 --table "$BATS_TEST_NAME"
+    [ $status -eq 0 ]
+    [ "$output" = "Warning: Another transaction by Trans2 has been started; any changes have been lost, anyway." ]
+}
+
+
+@test "aborting after the updated transaction timed out and another one was started prints a warning" {
     miniDB --start-write-transaction Trans1 --transaction-timeout 0 --table "$BATS_TEST_NAME"
     miniDB --within-transaction Trans1 --table "$BATS_TEST_NAME" --update "foo	A Foo has been updated	43"
     run miniDB --start-write-transaction Trans2 --transaction-timeout 3 --table "$BATS_TEST_NAME"
