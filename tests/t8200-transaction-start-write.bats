@@ -14,6 +14,7 @@ setup()
 
     let NOW+=4
     run miniDB --start-write-transaction Trans2 --table "$BATS_TEST_NAME"
+    [ $status -eq 0 ]
     [ "$output" = "Warning: Previous write transaction by Trans1 timed out 1 second ago but did not do any changes." ]
 }
 
@@ -23,6 +24,7 @@ setup()
 
     let NOW+=6
     run miniDB --start-write-transaction Trans2 --table "$BATS_TEST_NAME"
+    [ $status -eq 0 ]
     [ "$output" = "Warning: Previous write transaction by Trans1 timed out 3 seconds ago and has been rolled back." ]
 }
 
@@ -32,6 +34,7 @@ setup()
 
     let NOW+=5
     run miniDB --start-write-transaction Trans1 --table "$BATS_TEST_NAME"
+    [ $status -eq 0 ]
     [ "$output" = "Warning: Previous write transaction by Trans1 timed out 2 seconds ago and has been rolled back." ]
 }
 
