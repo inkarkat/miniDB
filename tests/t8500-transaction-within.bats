@@ -31,6 +31,23 @@ setup()
     [ "${lines[1]}" = "foo	The Foo is here	42" ]
 }
 
+@test "when inside an expired shared transaction a read action print a warning" {
+    miniDB --start-read-transaction Trans1 --table "$BATS_TEST_NAME"
+    miniDB --start-read-transaction Trans2 --table "$BATS_TEST_NAME"
+    lock_is_shared "$BATS_TEST_NAME"
+    let NOW+=1
+    miniDB --within-transaction Trans1 --table "$BATS_TEST_NAME" --query foo
+
+    let NOW+=4
+    run miniDB --within-transaction Trans1 --table "$BATS_TEST_NAME" --query foo
+    [ "${lines[0]}" = "Warning: Current shared transaction timed out 2 seconds ago." ]
+    [ "${lines[1]}" = "foo	The Foo is here	42" ]
+    let NOW+=1
+    run miniDB --within-transaction Trans2 --table "$BATS_TEST_NAME" --query foo
+    [ "${lines[0]}" = "Warning: Current shared transaction timed out 3 seconds ago." ]
+    [ "${lines[1]}" = "foo	The Foo is here	42" ]
+}
+
 @test "when inside an expired transaction a write action causes an error" {
     miniDB --start-write-transaction Trans1 --table "$BATS_TEST_NAME"
 
