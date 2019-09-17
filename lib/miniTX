@@ -94,7 +94,7 @@ case "$method" in
 		    printf >&2 'ERROR: Another %s is already in progress.\n' "$(getTransactionDescription)"
 		    exit 1
 		else
-		    printf 'Timed out while another %s transaction by %s is in progress.\n' "$lockMode" "$lockOwner"
+		    printf 'Timed out while another %s is in progress.\n' "$(getTransactionDescription)"
 		    exit 0
 		fi
 	    fi
@@ -116,7 +116,7 @@ case "$method" in
 		exit 6
 	    fi
 	else
-	    printf >&2 'ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
+	    echo >&2 'ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed.'
 	    removeLock
 	    exit 6
 	fi
@@ -133,7 +133,7 @@ case "$method" in
 	    fi
 	    rollback
 	else
-	    printf >&2 'Warning: Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
+	    echo >&2 'Warning: Not inside a transaction, or the transaction has timed out and another transaction was completed.'
 	fi
 	removeLock
 	;;
@@ -157,7 +157,7 @@ case "$method" in
 		exit 6
 	    fi
 	else
-	    printf >&2 'ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
+	    echo >&2 'ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed.'
 	    exit 6
 	fi
 	;;
