@@ -24,8 +24,8 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--basedir DIR|--base-type config|data|runtime|cache] [-s|--schema "KEY COL1 [COL2 ...]"] [-n|--namespace NAMESPACE] -t|--table TABLE [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... --start-read-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--start-write-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--upgrade-to-write-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--end-transaction OWNER-ID|--abort-write-transaction OWNER-ID [--timeout SECONDS]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... [-t|--transactional|--within-transaction [--timeout SECONDS] [--transaction-timeout TX-TIMEOUT]] ...'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... (--start-read-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--start-write-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--upgrade-to-write-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--end-transaction OWNER-ID|--abort-write-transaction OWNER-ID) [--timeout SECONDS]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [(-t|--transactional|--within-transaction) [--timeout SECONDS] [--transaction-timeout TX-TIMEOUT]] ...'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -u|--update RECORD'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -d|--delete KEY'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -D|--drop'
@@ -124,12 +124,12 @@ TRANSACTIONS:
 				while no write is under way. Pass this to ensure
 				consistency in case there could ever be
 				contention over the file.
-    --timeout SECONDS		Fail if the lock to start a transaction cannot
-				be acquired within SECONDS (instead of waiting
-				indefinitely) (because another transaction is
-				still active).
+    --timeout SECONDS		Fail if the lock to check for / start a
+				transaction cannot be acquired within SECONDS
+				(instead of waiting indefinitely) (because
+				another transaction is still active).
 				0 means fail rather than wait if the lock cannot
-				be immediately acquired.
+				be acquired immediately.
     --start-read-transaction OWNER-ID
 				Start a transaction that does not modify TABLE.
 				Until --end-transaction (or TX-TIMEOUT), no
