@@ -62,7 +62,7 @@ removeLock()
 }
 getTransactionDescription()
 {
-    if [ "$lockOwner" = '*' ]; then
+    if [ "${lockOwner:0:1}" = '*' ]; then
 	printf 'shared %s transaction' "$lockMode"
     else
 	printf '%s transaction by %s' "$lockMode" "$lockOwner"
@@ -85,9 +85,11 @@ case "$method" in
 			# another read transaction(s). We can allow it.
 			if [ "$lockOwner" != "$thisTransactionOwner" ]; then
 			    # If the previous transaction is not ours, set the
-			    # owner to * indicate that this now is a shared set
-			    # of read transactions.
-			    thisTransactionOwner='*'
+			    # owner to *N (where N is the number of
+			    # participating transactions) to indicate that this
+			    # is a shared set of read transactions.
+			    transactionCount=2; [ "${lockOwner:0:1}" = '*' ] && let transactionCount=${lockOwner:1}+1
+			    thisTransactionOwner="*$transactionCount"
 			fi
 			thisTransactionExpiry=$lockExpiry
 		elif [ "$lockOwner" = "$thisTransactionOwner" ]; then
@@ -125,13 +127,24 @@ case "$method" in
 	;;
     TX-END)
 	if existsLock; then
-	    if [ "$lockOwner" = "$thisTransactionOwner" -o "$lockOwner" = '*' ]; then
+	    if [ "$lockOwner" = "$thisTransactionOwner" -o "${lockOwner:0:1}" = '*' ]; then
 		if isLockExpired; then
-		    if [ "$lockOwner" = '*' ]; then
+		    if [ "${lockOwner:0:1}" = '*' ]; then
 			printf >&2 'Warning: Shared %s transaction timed out %d second%s ago.\n' "$lockMode" "$diff" "$diffPlural"
 		    else
 			printf >&2 'Warning: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"
 		    fi
+		elif [ "${lockOwner:0:1}" = '*' ] && [ ${lockOwner:1} -ge 2 ]; then
+		    # We cannot simply remove the lock; this would immediately
+		    # invalidate any other shared transactions, even though
+		    # there's still time until transaction expiry. Instead,
+		    # decrement the count and only remove the lock when we're
+		    # down to 1.
+		    thisTransactionMode="$lockMode"
+		    thisTransactionOwner="*$((${lockOwner:1} - 1))"
+		    thisTransactionExpiry=$lockExpiry
+		    createLock
+		    exit
 		fi
 	    else
 		printf >&2 'ERROR: Another %s has been started; any changes have been lost.\n' "$(getTransactionDescription)"
@@ -164,11 +177,11 @@ case "$method" in
 	    if [ "$lockOwner" = "$thisTransactionOwner" -a "$thisTransactionMode" = 'write' -a "$lockMode" != 'write' ]; then
 		echo >&2 'ERROR: Not in a write transaction.'
 		exit 2
-	    elif [ "$lockOwner" = "$thisTransactionOwner" -o \( "$lockOwner" = '*' -a "$thisTransactionMode" = 'read' \) ]; then
+	    elif [ "$lockOwner" = "$thisTransactionOwner" -o \( "${lockOwner:0:1}" = '*' -a "$thisTransactionMode" = 'read' \) ]; then
 		if isLockExpired; then
 		    case "$thisTransactionMode" in
 			read)
-			    shared=; [ "$lockOwner" = '*' ] && shared='shared'
+			    shared=; [ "${lockOwner:0:1}" = '*' ] && shared='shared'
 			    printf >&2 'Warning: Current %stransaction timed out %d second%s ago.\n' "${shared}${shared:+ }" "$diff" "$diffPlural"
 			    ;;
 			write)
