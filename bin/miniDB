@@ -134,10 +134,10 @@ TRANSACTIONS:
 				Don't print transaction-related errors (but keep
 				printing warnings). This can be used if a
 				fallback action is implemented, e.g.
-    if ! miniDB --upgrade-to-write-transaction "\$\$"; then
-	miniDB --silence-transaction-errors --end-transaction "\$\$"
-	miniDB --silence-transaction-errors --start-write-transaction "\$\$" &&
-	    value="\$(miniDB --within-transaction "\$\$" --query ...)"
+    if ! $(basename "$1") --upgrade-to-write-transaction "\$\$"; then
+	$(basename "$1") --silence-transaction-errors --end-transaction "\$\$"
+	$(basename "$1") --silence-transaction-errors --start-write-transaction "\$\$" &&
+	    value="\$($(basename "$1") --within-transaction "\$\$" --query ...)"
     fi
     --start-read-transaction OWNER-ID
 				Start a transaction that does not modify TABLE.
