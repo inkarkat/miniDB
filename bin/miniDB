@@ -182,6 +182,8 @@ printf '%q %s\n' "$(basename "$1")" '--within-transaction "$$" --table creationT
 printf '%q %s\n' "$(basename "$1")" '--upgrade-to-write-transaction "$$" --table creationTimes'
 printf '%q %s\n' "$(basename "$1")" '--within-transaction "$$" --table creationTimes --delete 123456'
 printf '%q %s\n' "$(basename "$1")" '--end-transaction "$$" --table creationTimes'
+printf 'or:\n'
+printf '%q %s\n' "$(basename "$1")" '--transactional --table creationTimes --query 123456'
 }
 
 containsTab()
