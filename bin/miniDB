@@ -587,7 +587,7 @@ startTransaction()
 	    exit 5
 	fi
 
-	sleep 0.01
+	sleep "${MINIDB_BLOCK_DELAY:-0.01s}"
     done
 }
 endTransaction()
