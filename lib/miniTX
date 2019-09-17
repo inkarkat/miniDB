@@ -17,6 +17,13 @@
 set -o noglob
 shopt -qs extglob
 
+errorPrintf()
+{
+    printf >&2 "ERROR: ${1:?}" "${@:2}"
+}
+case "$1" in
+    --silence-transaction-errors)	shift; errorPrintf() { :; };;
+esac
 method="${1:?}"; shift
 TABLE_FILESPEC="${1:?}"; shift
 LOCK_FILESPEC="${1:?}"; shift
@@ -25,6 +32,7 @@ thisTransactionMode="${1:?}"; shift
 thisTransactionTimeout="${1?}"; shift
 
 : ${NOW:=$(date +%s)}
+
 
 existsLock()
 {
@@ -93,7 +101,7 @@ case "$method" in
 			fi
 			thisTransactionExpiry=$lockExpiry
 		elif [ "$lockOwner" = "$thisTransactionOwner" ]; then
-		    printf >&2 'ERROR: Another %s is already in progress.\n' "$(getTransactionDescription)"
+		    errorPrintf 'Another %s is already in progress.\n' "$(getTransactionDescription)"
 		    exit 1
 		else
 		    printf 'Timed out while another %s is in progress.\n' "$(getTransactionDescription)"
@@ -114,14 +122,14 @@ case "$method" in
 		thisTransactionExpiry=$((NOW + thisTransactionTimeout))
 		createLock
 	    elif isLockExpired; then
-		printf >&2 'ERROR: Another %s has started already (and timed out %d second%s ago).\n' "$(getTransactionDescription)" "$diff" "$diffPlural"
+		errorPrintf 'Another %s has started already (and timed out %d second%s ago).\n' "$(getTransactionDescription)" "$diff" "$diffPlural"
 		exit 6
 	    else
-		printf >&2 'ERROR: Another %s is already in progress.\n' "$(getTransactionDescription)"
+		errorPrintf 'Another %s is already in progress.\n' "$(getTransactionDescription)"
 		exit 6
 	    fi
 	else
-	    echo >&2 'ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed.'
+	    errorPrintf 'Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
 	    exit 6
 	fi
 	;;
@@ -147,11 +155,11 @@ case "$method" in
 		    exit
 		fi
 	    else
-		printf >&2 'ERROR: Another %s has been started; any changes have been lost.\n' "$(getTransactionDescription)"
+		errorPrintf 'Another %s has been started; any changes have been lost.\n' "$(getTransactionDescription)"
 		exit 6
 	    fi
 	else
-	    echo >&2 'ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed.'
+	    errorPrintf 'Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
 	    removeLock
 	    exit 6
 	fi
@@ -163,7 +171,7 @@ case "$method" in
 		printf >&2 'Warning: Another %s has been started; any changes have been lost, anyway.\n' "$(getTransactionDescription)"
 		exit 0
 	    elif [ "$lockMode" != 'write' ]; then
-		echo >&2 'ERROR: Not in a write transaction.'
+		errorPrintf 'Not in a write transaction.\n'
 		exit 2
 	    fi
 	    rollback
@@ -175,7 +183,7 @@ case "$method" in
     TX-CHECK)
 	if existsLock; then
 	    if [ "$lockOwner" = "$thisTransactionOwner" -a "$thisTransactionMode" = 'write' -a "$lockMode" != 'write' ]; then
-		echo >&2 'ERROR: Not in a write transaction.'
+		errorPrintf 'Not in a write transaction.\n'
 		exit 2
 	    elif [ "$lockOwner" = "$thisTransactionOwner" -o \( "${lockOwner:0:1}" = '*' -a "$thisTransactionMode" = 'read' \) ]; then
 		if isLockExpired; then
@@ -185,17 +193,17 @@ case "$method" in
 			    printf >&2 'Warning: Current %stransaction timed out %d second%s ago.\n' "${shared}${shared:+ }" "$diff" "$diffPlural"
 			    ;;
 			write)
-			    printf >&2 'ERROR: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"
+			    errorPrintf 'Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"
 			    exit 6
 			    ;;
 		    esac
 		fi
 	    else
-		printf >&2 'ERROR: Another %s has been started; any changes have been lost.\n' "$(getTransactionDescription)"
+		errorPrintf 'Another %s has been started; any changes have been lost.\n' "$(getTransactionDescription)"
 		exit 6
 	    fi
 	else
-	    echo >&2 'ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed.'
+	    errorPrintf 'Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
 	    exit 6
 	fi
 	;;

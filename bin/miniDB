@@ -24,7 +24,7 @@ printShortUsage()
     # Note: short followed by long option; if the user knows the short one, she can
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--basedir DIR|--base-type config|data|runtime|cache] [-s|--schema "KEY COL1 [COL2 ...]"] [-n|--namespace NAMESPACE] -t|--table TABLE [-?|-h|--help]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... (--start-read-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--start-write-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--upgrade-to-write-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--end-transaction OWNER-ID|--abort-write-transaction OWNER-ID) [--timeout SECONDS]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... (--start-read-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--start-write-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--upgrade-to-write-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--end-transaction OWNER-ID|--abort-write-transaction OWNER-ID) [--timeout SECONDS] [--silence-transaction-errors]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [(-t|--transactional|--within-transaction) [--timeout SECONDS] [--transaction-timeout TX-TIMEOUT]] ...'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -u|--update RECORD'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -d|--delete KEY'
@@ -130,6 +130,15 @@ TRANSACTIONS:
 				another transaction is still active).
 				0 means fail rather than wait if the lock cannot
 				be acquired immediately.
+    --silence-transaction-errors
+				Don't print transaction-related errors (but keep
+				printing warnings). This can be used if a
+				fallback action is implemented, e.g.
+    if ! miniDB --upgrade-to-write-transaction "\$\$"; then
+	miniDB --silence-transaction-errors --end-transaction "\$\$"
+	miniDB --silence-transaction-errors --start-write-transaction "\$\$" &&
+	    value="\$(miniDB --within-transaction "\$\$" --query ...)"
+    fi
     --start-read-transaction OWNER-ID
 				Start a transaction that does not modify TABLE.
 				Until --end-transaction (or TX-TIMEOUT), no
@@ -225,6 +234,8 @@ outputFormat=
 typeset -a commandLines=()
 typeset -a beforeCommands=()
 typeset -a afterCommands=()
+typeset -a miniTxArgs=()
+isSilenceTransactionErrors=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -252,6 +263,7 @@ do
 	--end-transaction)		shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; [ "$action" ] && multipleActionsError "$0"; action='endTransaction'; transactionOwner="$1"; shift;;
 	--abort-write-transaction)	shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; [ "$action" ] && multipleActionsError "$0"; action='abortWriteTransaction'; transactionOwner="$1"; shift;;
 	--timeout)			shift; waitTimeout="$1"; shift;;
+	--silence-transaction-errors)	isSilenceTransactionErrors=t; miniTxArgs+=("$1"); shift;;
 	--transaction-timeout)		shift; transactionTimeout="$1"; shift;;
 	--schema|-s)	shift; schema=($1); shift
 			if [ ${#schema[@]} -eq 0 ]; then
@@ -588,7 +600,7 @@ lockedCall()
     [ -d "$scriptDir" ] || { echo >&2 "ERROR: Cannot determine script directory!"; exit 3; }
     local method="${1:?}"; shift
     local mode=write; [ "$needReadLock" ] && mode=read
-    flock "$@" --conflict-exit-code 5 ${waitTimeout:+--timeout "$waitTimeout"} "$LOCK_FILESPEC" "${scriptDir}/../lib/miniTX" "$method" "$TABLE_FILESPEC" "$LOCK_FILESPEC" "$transactionOwner" "$mode" "$transactionTimeout"
+    flock "$@" --conflict-exit-code 5 ${waitTimeout:+--timeout "$waitTimeout"} "$LOCK_FILESPEC" "${scriptDir}/../lib/miniTX" "${miniTxArgs[@]}" "$method" "$TABLE_FILESPEC" "$LOCK_FILESPEC" "$transactionOwner" "$mode" "$transactionTimeout"
 }
 startTransaction()
 {
@@ -600,7 +612,7 @@ startTransaction()
 	[ ! "$error" ] && break
 
 	if [ -n "$NOW" -o \( -n "$waitTimeout" -a $SECONDS -ge ${waitTimeout:-0} \) ]; then
-	    printf >&2 '%s\n' "$error"
+	    [ "$isSilenceTransactionErrors" ] || printf >&2 '%s\n' "$error"
 	    exit 5
 	fi
 
