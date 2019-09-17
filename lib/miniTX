@@ -112,7 +112,7 @@ case "$method" in
 		    fi
 		fi
 	    else
-		printf >&2 'ERROR: Another %s transaction by %s has been started; any changes have been lost.\n' "$lockMode" "$lockOwner"
+		printf >&2 'ERROR: Another %s has been started; any changes have been lost.\n' "$(getTransactionDescription)"
 		exit 6
 	    fi
 	else
