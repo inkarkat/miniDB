@@ -22,7 +22,7 @@ errorPrintf()
     printf >&2 "ERROR: ${1:?}" "${@:2}"
 }
 case "$1" in
-    --silence-errors)	shift; errorPrintf() { :; };;
+    --silence-transaction-errors)	shift; errorPrintf() { :; };;
 esac
 method="${1:?}"; shift
 TABLE_FILESPEC="${1:?}"; shift
