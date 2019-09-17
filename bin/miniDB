@@ -60,47 +60,6 @@ HELPDESCRIPTION
     --base-type config|data|runtime|cache
 				Set the base directory based on the passed
 				characterization. The default is "config".
-    --transactional|-t		Lock TABLE during the access so that writes are
-				serialized and concurrent reads can only happen
-				while no write is under way. Pass this to ensure
-				consistency in case there could ever be
-				contention over the file.
-    --timeout SECONDS		Fail if the lock to start a transaction cannot
-				be acquired within SECONDS (instead of waiting
-				indefinitely) (because another transaction is
-				still active).
-				0 means fail rather than wait if the lock cannot
-				be immediately acquired.
-    --start-read-transaction OWNER-ID
-				Start a transaction that does not modify TABLE.
-				Until --end-transaction (or TX-TIMEOUT), no
-				other updates to the TABLE are possible.
-    --start-write-transaction OWNER-ID
-				Start a transaction that modifies TABLE.
-				Until --end-transaction (or TX-TIMEOUT), no
-				other reads or updates to the TABLE are
-				possible.
-    --upgrade-to-write-transaction OWNER-ID
-				Change a held transaction that was started with
-				--start-read-transaction (and hasn't become
-				shared) to also allow modifications of TABLE.
-				Until --end-transaction (or TX-TIMEOUT, which is
-				extended), no other reads or updates to the
-				TABLE are possible.
-    --transaction-timeout TX-TIMEOUT
-				A transition is automatically aborted if more
-				than TX-TIMEOUT (default 3) seconds passed since
-				--start-*-transaction.
-    --within-transaction OWNER-ID
-				Perform an action within the transaction.
-    --end-transaction OWNER-ID
-				End the transaction, so that other clients can
-				do updates again. If this does not happen within
-				TX-TIMEOUT, another transaction may be started
-				and aborts this one.
-    --abort-write-transaction OWNER-ID
-				End the transaction, and undo any writes done
-				within it.
     --schema|-s "KEY COL1 [...]"Optional database schema; will be included as a
 				commented first line in the data file.
     --namespace|-n NAMESPACE	Optional application / use case for this tool's
@@ -159,6 +118,48 @@ HELPDESCRIPTION
     --after COMMANDLINE		Execute COMMANDLINE after all iterations; this
 				can be used to use accumulated iteration
 				results.
+TRANSACTIONS:
+    --transactional|-t		Lock TABLE during the access so that writes are
+				serialized and concurrent reads can only happen
+				while no write is under way. Pass this to ensure
+				consistency in case there could ever be
+				contention over the file.
+    --timeout SECONDS		Fail if the lock to start a transaction cannot
+				be acquired within SECONDS (instead of waiting
+				indefinitely) (because another transaction is
+				still active).
+				0 means fail rather than wait if the lock cannot
+				be immediately acquired.
+    --start-read-transaction OWNER-ID
+				Start a transaction that does not modify TABLE.
+				Until --end-transaction (or TX-TIMEOUT), no
+				other updates to the TABLE are possible.
+    --start-write-transaction OWNER-ID
+				Start a transaction that modifies TABLE.
+				Until --end-transaction (or TX-TIMEOUT), no
+				other reads or updates to the TABLE are
+				possible.
+    --upgrade-to-write-transaction OWNER-ID
+				Change a held transaction that was started with
+				--start-read-transaction (and hasn't become
+				shared) to also allow modifications of TABLE.
+				Until --end-transaction (or TX-TIMEOUT, which is
+				extended), no other reads or updates to the
+				TABLE are possible.
+    --transaction-timeout TX-TIMEOUT
+				A transition is automatically aborted if more
+				than TX-TIMEOUT (default 3) seconds passed since
+				--start-*-transaction.
+    --within-transaction OWNER-ID
+				Perform an action within the transaction.
+    --end-transaction OWNER-ID
+				End the transaction, so that other clients can
+				do updates again. If this does not happen within
+				TX-TIMEOUT, another transaction may be started
+				and aborts this one.
+    --abort-write-transaction OWNER-ID
+				End the transaction, and undo any writes done
+				within it.
 EXIT STATUS:
     0	Complete success.
     1	Failed to read / write / remove the table file.
