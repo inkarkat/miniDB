@@ -17,6 +17,13 @@
 set -o noglob
 shopt -qs extglob
 
+errorPrintf()
+{
+    printf >&2 "ERROR: ${1:?}" "${@:2}"
+}
+case "$1" in
+    --silence-errors)	shift; errorPrintf() { :; };;
+esac
 method="${1:?}"; shift
 TABLE_FILESPEC="${1:?}"; shift
 LOCK_FILESPEC="${1:?}"; shift
@@ -25,6 +32,7 @@ thisTransactionMode="${1:?}"; shift
 thisTransactionTimeout="${1?}"; shift
 
 : ${NOW:=$(date +%s)}
+
 
 existsLock()
 {
@@ -67,10 +75,6 @@ getTransactionDescription()
     else
 	printf '%s transaction by %s' "$lockMode" "$lockOwner"
     fi
-}
-errorPrintf()
-{
-    printf >&2 "ERROR: ${1:?}" "${@:2}"
 }
 
 case "$method" in
