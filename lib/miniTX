@@ -1,0 +1,168 @@
+#!/bin/bash
+###############################################################################
+##
+# FILE:		miniTX
+# PRODUCT:	tools
+# AUTHOR:	Ingo Karkat <ingo@karkat.de>
+# DATE CREATED:	04-Apr-2019
+#
+###############################################################################
+# CONTENTS:
+#   Lightweight transactions for miniDB.
+#
+# REMARKS:
+#
+# @(#)miniTX	$Id$	tools
+###############################################################################
+set -o noglob
+shopt -qs extglob
+
+method="${1:?}"; shift
+TABLE_FILESPEC="${1:?}"; shift
+LOCK_FILESPEC="${1:?}"; shift
+thisTransactionOwner="${1:?}"; shift
+thisTransactionMode="${1:?}"; shift
+thisTransactionTimeout="${1?}"; shift
+
+: ${NOW:=$(date +%s)}
+
+existsLock()
+{
+    IFS=' ' read -r lockExpiry lockMode lockOwner < "$LOCK_FILESPEC"
+}
+isLockExpired()
+{
+    if [ $NOW -gt $lockExpiry ]; then
+	diff=$((NOW - lockExpiry))
+	diffPlural=s; [ $diff -eq 1 ] && diffPlural=
+	return 0
+    else
+	return 1
+    fi
+}
+createLock()
+{
+    printf > "$LOCK_FILESPEC" '%s %s %s\n' "${thisTransactionExpiry:?}" "${thisTransactionMode:?}" "${thisTransactionOwner:?}"
+    if [ -e "$TABLE_FILESPEC" ]; then
+	cat -- "$TABLE_FILESPEC" >> "$LOCK_FILESPEC"
+    fi
+}
+rollback()
+{
+    local recordLen="$(head -n 1 -- "$LOCK_FILESPEC" | wc --bytes)"
+    if cmp --silent --ignore-initial="${recordLen}:0" "$LOCK_FILESPEC" "$TABLE_FILESPEC"; then
+	return 99
+    else
+	tail -n +2 "$LOCK_FILESPEC" > "$TABLE_FILESPEC"
+    fi
+}
+removeLock()
+{
+    rm -f "$LOCK_FILESPEC"
+}
+getTransactionDescription()
+{
+    if [ "$lockOwner" = '*' ]; then
+	printf 'shared %s transaction' "$lockMode"
+    else
+	printf '%s transaction by %s' "$lockMode" "$lockOwner"
+    fi
+}
+
+case "$method" in
+    TX-START)
+	thisTransactionExpiry=$((NOW + thisTransactionTimeout))
+	if existsLock; then
+	    if isLockExpired; then
+		if rollback; then
+		    printf >&2 'Warning: Previous %s timed out %d second%s ago and has been rolled back.\n' "$(getTransactionDescription)" "$diff" "$diffPlural"
+		else
+		    printf >&2 'Warning: Previous %s timed out %d second%s ago but did not do any changes.\n' "$(getTransactionDescription)" "$diff" "$diffPlural"
+		fi
+	    else
+		if [ "$lockMode" = 'read' -a "$thisTransactionMode" = 'read' -a $thisTransactionExpiry -le $lockExpiry ]; then
+			# This transaction does not prolong the existing lock of
+			# another read transaction(s). We can allow it.
+			if [ "$lockOwner" != "$thisTransactionOwner" ]; then
+			    # If the previous transaction is not ours, set the
+			    # owner to * indicate that this now is a shared set
+			    # of read transactions.
+			    thisTransactionOwner='*'
+			fi
+			thisTransactionExpiry=$lockExpiry
+		elif [ "$lockOwner" = "$thisTransactionOwner" ]; then
+		    printf >&2 'ERROR: Another %s is already in progress.\n' "$(getTransactionDescription)"
+		    exit 1
+		else
+		    printf 'Timed out while another %s transaction by %s is in progress.\n' "$lockMode" "$lockOwner"
+		    exit 0
+		fi
+	    fi
+	fi
+	createLock
+	;;
+    TX-END)
+	if existsLock; then
+	    if [ "$lockOwner" = "$thisTransactionOwner" -o "$lockOwner" = '*' ]; then
+		if isLockExpired; then
+		    if [ "$lockOwner" = '*' ]; then
+			printf >&2 'Warning: Shared %s transaction timed out %d second%s ago.\n' "$lockMode" "$diff" "$diffPlural"
+		    else
+			printf >&2 'Warning: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"
+		    fi
+		fi
+	    else
+		printf >&2 'ERROR: Another %s has been started; any changes have been lost.\n' "$(getTransactionDescription)"
+		exit 6
+	    fi
+	else
+	    printf >&2 'ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
+	    removeLock
+	    exit 6
+	fi
+	removeLock
+	;;
+    TX-ABORT)
+	if existsLock; then
+	    if [ "$lockOwner" != "$thisTransactionOwner" ]; then
+		printf >&2 'Warning: Another %s has been started; any changes have been lost, anyway.\n' "$(getTransactionDescription)"
+		exit 0
+	    elif [ "$lockMode" != 'write' ]; then
+		echo >&2 'ERROR: Not in a write transaction.'
+		exit 2
+	    fi
+	    rollback
+	else
+	    printf >&2 'Warning: Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
+	fi
+	removeLock
+	;;
+    TX-CHECK)
+	if existsLock; then
+	    if [ "$lockOwner" = "$thisTransactionOwner" -o \( "$lockOwner" = '*' -a "$thisTransactionMode" = 'read' \) ]; then
+		if isLockExpired; then
+		    case "$thisTransactionMode" in
+			read)
+			    shared=; [ "$lockOwner" = '*' ] && shared='shared'
+			    printf >&2 'Warning: Current %stransaction timed out %d second%s ago.\n' "${shared}${shared:+ }" "$diff" "$diffPlural"
+			    ;;
+			write)
+			    printf >&2 'ERROR: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"
+			    exit 6
+			    ;;
+		    esac
+		fi
+	    else
+		printf >&2 'ERROR: Another %s has been started; any changes have been lost.\n' "$(getTransactionDescription)"
+		exit 6
+	    fi
+	else
+	    printf >&2 'ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
+	    exit 6
+	fi
+	;;
+    *)
+	printf >&2 'ASSERT: Invalid method: %s\n' "$method"
+	exit 2
+	;;
+esac

@@ -15,3 +15,10 @@ load canned_databases
     [ "${lines[0]}" = 'ERROR: Invalid base-type "doesNotExist".' ]
     [ "${lines[2]%% *}" = 'Usage:' ]
 }
+
+@test "invalid table with slash prints usage error" {
+    run miniDB --table not/allowed --query foo
+    [ $status -eq 2 ]
+    [ "${lines[0]}" = 'ERROR: TABLE must not contain slashes.' ]
+    [ "${lines[2]%% *}" = 'Usage:' ]
+}
