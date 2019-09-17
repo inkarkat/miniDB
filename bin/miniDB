@@ -80,6 +80,13 @@ HELPDESCRIPTION
 				Until --end-transaction (or TX-TIMEOUT), no
 				other reads or updates to the TABLE are
 				possible.
+    --upgrade-to-write-transaction OWNER-ID
+				Change a held transaction that was started with
+				--start-read-transaction (and hasn't become
+				shared) to also allow modifications of TABLE.
+				Until --end-transaction (or TX-TIMEOUT, which is
+				extended), no other reads or updates to the
+				TABLE are possible.
     --transaction-timeout TX-TIMEOUT
 				A transition is automatically aborted if more
 				than TX-TIMEOUT (default 3) seconds passed since
