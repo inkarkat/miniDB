@@ -94,12 +94,34 @@ case "$method" in
 		    printf >&2 'ERROR: Another %s is already in progress.\n' "$(getTransactionDescription)"
 		    exit 1
 		else
-		    printf 'Timed out while another %s transaction by %s is in progress.\n' "$lockMode" "$lockOwner"
+		    printf 'Timed out while another %s is in progress.\n' "$(getTransactionDescription)"
 		    exit 0
 		fi
 	    fi
 	fi
 	createLock
+	;;
+    TX-UPGRADE)
+	if existsLock; then
+	    if [ "$lockOwner" = "$thisTransactionOwner" ]; then
+		if isLockExpired; then
+		    printf >&2 'Warning: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"
+		elif [ "$lockMode" = 'write' ]; then
+		    echo >&2 'Note: Current transaction already is a write transaction, no need to upgrade.'
+		fi
+		thisTransactionExpiry=$((NOW + thisTransactionTimeout))
+		createLock
+	    elif isLockExpired; then
+		printf >&2 'ERROR: Another %s has started already (and timed out %d second%s ago).\n' "$(getTransactionDescription)" "$diff" "$diffPlural"
+		exit 6
+	    else
+		printf >&2 'ERROR: Another %s is already in progress.\n' "$(getTransactionDescription)"
+		exit 6
+	    fi
+	else
+	    echo >&2 'ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed.'
+	    exit 6
+	fi
 	;;
     TX-END)
 	if existsLock; then
@@ -116,7 +138,7 @@ case "$method" in
 		exit 6
 	    fi
 	else
-	    printf >&2 'ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
+	    echo >&2 'ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed.'
 	    removeLock
 	    exit 6
 	fi
@@ -133,7 +155,7 @@ case "$method" in
 	    fi
 	    rollback
 	else
-	    printf >&2 'Warning: Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
+	    echo >&2 'Warning: Not inside a transaction, or the transaction has timed out and another transaction was completed.'
 	fi
 	removeLock
 	;;
@@ -157,7 +179,7 @@ case "$method" in
 		exit 6
 	    fi
 	else
-	    printf >&2 'ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed.\n'
+	    echo >&2 'ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed.'
 	    exit 6
 	fi
 	;;
