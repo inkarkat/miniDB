@@ -20,7 +20,7 @@ setup()
     [ $status -eq 0 ]
 }
 
-@test "when inside an expired transaction a read action print a warning" {
+@test "when inside an expired transaction a read action prints a warning" {
     miniDB --start-write-transaction Trans1 --table "$BATS_TEST_NAME"
     let NOW+=1
     miniDB --within-transaction Trans1 --table "$BATS_TEST_NAME" --query foo
@@ -31,7 +31,7 @@ setup()
     [ "${lines[1]}" = "foo	The Foo is here	42" ]
 }
 
-@test "when inside an expired shared transaction a read action print a warning" {
+@test "when inside an expired shared transaction a read action prints a warning" {
     miniDB --start-read-transaction Trans1 --table "$BATS_TEST_NAME"
     miniDB --start-read-transaction Trans2 --table "$BATS_TEST_NAME"
     lock_is_shared "$BATS_TEST_NAME"

@@ -161,7 +161,10 @@ case "$method" in
 	;;
     TX-CHECK)
 	if existsLock; then
-	    if [ "$lockOwner" = "$thisTransactionOwner" -o \( "$lockOwner" = '*' -a "$thisTransactionMode" = 'read' \) ]; then
+	    if [ "$lockOwner" = "$thisTransactionOwner" -a "$thisTransactionMode" = 'write' -a "$lockMode" != 'write' ]; then
+		echo >&2 'ERROR: Not in a write transaction.'
+		exit 2
+	    elif [ "$lockOwner" = "$thisTransactionOwner" -o \( "$lockOwner" = '*' -a "$thisTransactionMode" = 'read' \) ]; then
 		if isLockExpired; then
 		    case "$thisTransactionMode" in
 			read)
