@@ -58,7 +58,7 @@ rollback()
 }
 removeLock()
 {
-    rm -f "$LOCK_FILESPEC"
+    > "$LOCK_FILESPEC"
 }
 getTransactionDescription()
 {
