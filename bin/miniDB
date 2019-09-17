@@ -199,7 +199,7 @@ multipleActionsError()
 }
 multipleTransactionsError()
 {
-    echo >&2 "ERROR: --transactional cannot be combined with the --start-read-transaction|--start-write-transaction|--upgrade-to-write-transaction|--within-transaction|--end-transaction|--abort-write-transaction set."
+    echo >&2 "ERROR: --transactional cannot be combined with the --start-read-transaction|--start-write-transaction|--upgrade-to-write-transaction|--within-transaction|--end-transaction|--abort-write-transaction set, and only one from the set can be given."
     echo >&2
     printShortUsage "$1" >&2
     exit 2
