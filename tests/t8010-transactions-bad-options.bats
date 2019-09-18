@@ -42,3 +42,19 @@ load temp_database
     [ "${lines[0]}" = 'ERROR: --transactional cannot be combined with the --start-read-transaction|--start-write-transaction|--upgrade-to-write-transaction|--within-transaction|--end-transaction|--abort-write-transaction set, and only one from the set can be given.' ]
     [ "${lines[2]%% *}" = 'Usage:' ]
 }
+
+@test "OWNER-ID starting with * prints usage error" {
+    run miniDB --start-read-transaction '*foo' --table some-entries
+    [ $status -eq 2 ]
+    [ "${lines[0]}" = 'ERROR: OWNER-ID must not start with *.' ]
+    [ "${lines[2]%% *}" = 'Usage:' ]
+
+    run miniDB --start-read-transaction '*' --table some-entries
+    [ $status -eq 2 ]
+    [ "${lines[0]}" = 'ERROR: OWNER-ID must not start with *.' ]
+    [ "${lines[2]%% *}" = 'Usage:' ]
+}
+
+@test "OWNER-ID containing * elsewhere works" {
+    miniDB --start-read-transaction 'f**' --table some-entries
+}

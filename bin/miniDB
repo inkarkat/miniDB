@@ -360,6 +360,11 @@ elif [ ! "$table" ]; then
     echo >&2
     printShortUsage "$0" >&2
     exit 2
+elif [ "${transactionOwner:0:1}" = '*' ]; then
+    echo >&2 'ERROR: OWNER-ID must not start with *.'
+    echo >&2
+    printShortUsage "$0" >&2
+    exit 2
 fi
 if [ "$action" = unescape ]; then
     # Need no transactions around unescaping.
