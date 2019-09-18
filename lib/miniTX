@@ -68,9 +68,13 @@ removeLock()
 {
     > "$LOCK_FILESPEC"
 }
+isSharedOwnership()
+{
+    [ "${lockOwner:0:1}" = '*' ]
+}
 getTransactionDescription()
 {
-    if [ "${lockOwner:0:1}" = '*' ]; then
+    if isSharedOwnership; then
 	printf 'shared %s transaction' "$lockMode"
     else
 	printf '%s transaction by %s' "$lockMode" "$lockOwner"
@@ -96,7 +100,7 @@ case "$method" in
 			    # owner to *N (where N is the number of
 			    # participating transactions) to indicate that this
 			    # is a shared set of read transactions.
-			    transactionCount=2; [ "${lockOwner:0:1}" = '*' ] && let transactionCount=${lockOwner:1}+1
+			    transactionCount=2; isSharedOwnership && let transactionCount=${lockOwner:1}+1
 			    thisTransactionOwner="*$transactionCount"
 			fi
 			thisTransactionExpiry=$lockExpiry
@@ -135,14 +139,14 @@ case "$method" in
 	;;
     TX-END)
 	if existsLock; then
-	    if [ "$lockOwner" = "$thisTransactionOwner" -o "${lockOwner:0:1}" = '*' ]; then
+	    if [ "$lockOwner" = "$thisTransactionOwner" ] || isSharedOwnership; then
 		if isLockExpired; then
-		    if [ "${lockOwner:0:1}" = '*' ]; then
+		    if isSharedOwnership; then
 			printf >&2 'Warning: Shared %s transaction timed out %d second%s ago.\n' "$lockMode" "$diff" "$diffPlural"
 		    else
 			printf >&2 'Warning: Current transaction timed out %d second%s ago.\n' "$diff" "$diffPlural"
 		    fi
-		elif [ "${lockOwner:0:1}" = '*' ] && [ ${lockOwner:1} -ge 2 ]; then
+		elif isSharedOwnership && [ ${lockOwner:1} -ge 2 ]; then
 		    # We cannot simply remove the lock; this would immediately
 		    # invalidate any other shared transactions, even though
 		    # there's still time until transaction expiry. Instead,
@@ -185,11 +189,11 @@ case "$method" in
 	    if [ "$lockOwner" = "$thisTransactionOwner" -a "$thisTransactionMode" = 'write' -a "$lockMode" != 'write' ]; then
 		errorPrintf 'Not in a write transaction.\n'
 		exit 2
-	    elif [ "$lockOwner" = "$thisTransactionOwner" -o \( "${lockOwner:0:1}" = '*' -a "$thisTransactionMode" = 'read' \) ]; then
+	    elif [ "$lockOwner" = "$thisTransactionOwner" ] || { isSharedOwnership && [ "$thisTransactionMode" = 'read' ]; }; then
 		if isLockExpired; then
 		    case "$thisTransactionMode" in
 			read)
-			    shared=; [ "${lockOwner:0:1}" = '*' ] && shared='shared'
+			    shared=; isSharedOwnership && shared='shared'
 			    printf >&2 'Warning: Current %stransaction timed out %d second%s ago.\n' "${shared}${shared:+ }" "$diff" "$diffPlural"
 			    ;;
 			write)
