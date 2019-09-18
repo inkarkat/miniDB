@@ -48,7 +48,7 @@ return
 @test "50 concurrent transactional updates to a table keep all updates" {
     for ((i = 0; i < 50; i++))
     do
-	transactional_increment "$i" &
+	transactional_increment "$i" --transaction-timeout 10 &
     done
 
     wait
