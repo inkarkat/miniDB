@@ -25,7 +25,7 @@ printShortUsage()
     # skim the long one.
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--basedir DIR|--base-type config|data|runtime|cache] [-s|--schema "KEY COL1 [COL2 ...]"] [-n|--namespace NAMESPACE] -t|--table TABLE [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... (--start-read-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--start-write-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--upgrade-to-write-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--end-transaction OWNER-ID|--abort-write-transaction OWNER-ID) [--timeout SECONDS] [--silence-transaction-errors]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '... [(-t|--transactional [--transaction-timeout TX-TIMEOUT]|--within-transaction) [--timeout SECONDS] [--silence-transaction-errors]] ...'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [(-t|--transactional [--transaction-timeout TX-TIMEOUT]|--within-transaction|-T|--no-transaction) [--timeout SECONDS] [--silence-transaction-errors]] ...'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -u|--update RECORD'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -d|--delete KEY'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -D|--drop'
@@ -130,6 +130,10 @@ TRANSACTIONS:
 				another transaction is still active).
 				0 means fail rather than wait if the lock cannot
 				be acquired immediately.
+    --no-transaction|-T		Allow access to TABLE outside of a transaction.
+				Note that this may return inconsistent data or
+				even cause data loss, unless you know what
+				you're doing!
     --silence-transaction-errors
 				Don't print transaction-related errors (but keep
 				printing warnings). This can be used if a
@@ -208,7 +212,7 @@ multipleActionsError()
 }
 multipleTransactionsError()
 {
-    echo >&2 "ERROR: --transactional cannot be combined with the --start-read-transaction|--start-write-transaction|--upgrade-to-write-transaction|--within-transaction|--end-transaction|--abort-write-transaction set, and only one from the set can be given."
+    echo >&2 "ERROR: --transactional cannot be combined with --no-transaction or the --start-read-transaction|--start-write-transaction|--upgrade-to-write-transaction|--within-transaction|--end-transaction|--abort-write-transaction set, and only one from the set can be given."
     echo >&2
     printShortUsage "$1" >&2
     exit 2
@@ -255,13 +259,14 @@ do
 			esac
 			shift
 			;;
-	--transactional|-t)		shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; preAction='startTransaction'; postAction='endTransaction'; transactionOwner="$$";;
-	--within-transaction)		shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; preAction='checkTransaction'; transactionOwner="$1"; shift;;
-	--start-read-transaction)	shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; preAction=''; [ "$action" ] && multipleActionsError "$0"; action='startTransaction'; needReadLock=t; transactionOwner="$1"; shift;;
-	--start-write-transaction)	shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; preAction=''; [ "$bction" ] && multipleActionsError "$0"; action='startTransaction'; transactionOwner="$1"; shift;;
-	--upgrade-to-write-transaction)	shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; preAction=''; [ "$action" ] && multipleActionsError "$0"; action='upgradeTransaction'; transactionOwner="$1"; shift;;
-	--end-transaction)		shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; preAction=''; [ "$action" ] && multipleActionsError "$0"; action='endTransaction'; transactionOwner="$1"; shift;;
-	--abort-write-transaction)	shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; preAction=''; [ "$action" ] && multipleActionsError "$0"; action='abortWriteTransaction'; transactionOwner="$1"; shift;;
+	--no-transaction|-T)		shift; [ -n "$transactionOwner" -o -z "$preAction" ] && multipleTransactionsError "$0"; preAction='';;
+	--transactional|-t)		shift; [ -n "$transactionOwner" -o -z "$preAction" ] && multipleTransactionsError "$0"; preAction='startTransaction'; postAction='endTransaction'; transactionOwner="$$";;
+	--within-transaction)		shift; [ -n "$transactionOwner" -o -z "$preAction" ] && multipleTransactionsError "$0"; preAction='checkTransaction'; transactionOwner="$1"; shift;;
+	--start-read-transaction)	shift; [ -n "$transactionOwner" -o -z "$preAction" ] && multipleTransactionsError "$0"; preAction=''; [ "$action" ] && multipleActionsError "$0"; action='startTransaction'; needReadLock=t; transactionOwner="$1"; shift;;
+	--start-write-transaction)	shift; [ -n "$transactionOwner" -o -z "$preAction" ] && multipleTransactionsError "$0"; preAction=''; [ "$bction" ] && multipleActionsError "$0"; action='startTransaction'; transactionOwner="$1"; shift;;
+	--upgrade-to-write-transaction)	shift; [ -n "$transactionOwner" -o -z "$preAction" ] && multipleTransactionsError "$0"; preAction=''; [ "$action" ] && multipleActionsError "$0"; action='upgradeTransaction'; transactionOwner="$1"; shift;;
+	--end-transaction)		shift; [ -n "$transactionOwner" -o -z "$preAction" ] && multipleTransactionsError "$0"; preAction=''; [ "$action" ] && multipleActionsError "$0"; action='endTransaction'; transactionOwner="$1"; shift;;
+	--abort-write-transaction)	shift; [ -n "$transactionOwner" -o -z "$preAction" ] && multipleTransactionsError "$0"; preAction=''; [ "$action" ] && multipleActionsError "$0"; action='abortWriteTransaction'; transactionOwner="$1"; shift;;
 	--timeout)			shift; waitTimeout="$1"; shift;;
 	--silence-transaction-errors)	isSilenceTransactionErrors=t; miniTxArgs+=("$1"); shift;;
 	--transaction-timeout)		shift; transactionTimeout="$1"; shift;;
