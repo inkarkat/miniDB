@@ -225,7 +225,7 @@ table=
 line=
 key=
 fallbackKey=
-preAction=
+preAction='ensureNotTransactional'
 action=
 postAction=
 typeset -a queriedColumns=()
@@ -257,11 +257,11 @@ do
 			;;
 	--transactional|-t)		shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; preAction='startTransaction'; postAction='endTransaction'; transactionOwner="$$";;
 	--within-transaction)		shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; preAction='checkTransaction'; transactionOwner="$1"; shift;;
-	--start-read-transaction)	shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; [ "$action" ] && multipleActionsError "$0"; action='startTransaction'; needReadLock=t; transactionOwner="$1"; shift;;
-	--start-write-transaction)	shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; [ "$action" ] && multipleActionsError "$0"; action='startTransaction'; transactionOwner="$1"; shift;;
-	--upgrade-to-write-transaction)	shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; [ "$action" ] && multipleActionsError "$0"; action='upgradeTransaction'; transactionOwner="$1"; shift;;
-	--end-transaction)		shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; [ "$action" ] && multipleActionsError "$0"; action='endTransaction'; transactionOwner="$1"; shift;;
-	--abort-write-transaction)	shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; [ "$action" ] && multipleActionsError "$0"; action='abortWriteTransaction'; transactionOwner="$1"; shift;;
+	--start-read-transaction)	shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; preAction=''; [ "$action" ] && multipleActionsError "$0"; action='startTransaction'; needReadLock=t; transactionOwner="$1"; shift;;
+	--start-write-transaction)	shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; preAction=''; [ "$bction" ] && multipleActionsError "$0"; action='startTransaction'; transactionOwner="$1"; shift;;
+	--upgrade-to-write-transaction)	shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; preAction=''; [ "$action" ] && multipleActionsError "$0"; action='upgradeTransaction'; transactionOwner="$1"; shift;;
+	--end-transaction)		shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; preAction=''; [ "$action" ] && multipleActionsError "$0"; action='endTransaction'; transactionOwner="$1"; shift;;
+	--abort-write-transaction)	shift; [ "$transactionOwner" ] && multipleTransactionsError "$0"; preAction=''; [ "$action" ] && multipleActionsError "$0"; action='abortWriteTransaction'; transactionOwner="$1"; shift;;
 	--timeout)			shift; waitTimeout="$1"; shift;;
 	--silence-transaction-errors)	isSilenceTransactionErrors=t; miniTxArgs+=("$1"); shift;;
 	--transaction-timeout)		shift; transactionTimeout="$1"; shift;;
@@ -599,6 +599,13 @@ queryKeys()
 }
 
 
+ensureNotTransactional()
+{
+    if [ -e "$LOCK_FILESPEC" ]; then
+	echo >&2 "This table must be accessed in a transactional manner, using either --transactional or the --start-read-transaction|--start-write-transaction|--upgrade-to-write-transaction|--within-transaction|--end-transaction|--abort-write-transaction set."
+	exit 2
+    fi
+}
 lockedCall()
 {
     local -r scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
