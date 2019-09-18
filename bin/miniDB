@@ -138,11 +138,19 @@ TRANSACTIONS:
 				Don't print transaction-related errors (but keep
 				printing warnings). This can be used if a
 				fallback action is implemented, e.g.
-    if ! $(basename "$1") --upgrade-to-write-transaction "\$\$"; then
+    $(basename "$1") --start-read-transaction "\$\$"
+    value="\$($(basename "$1") --within-transaction "\$\$" --query ...)"
+    if ! $(basename "$1") --silence-transaction-errors --upgrade-to-write-transaction "\$\$"
+    then
 	$(basename "$1") --silence-transaction-errors --end-transaction "\$\$"
-	$(basename "$1") --silence-transaction-errors --start-write-transaction "\$\$" &&
+	if $(basename "$1") --start-write-transaction "\$\$"; then
 	    value="\$($(basename "$1") --within-transaction "\$\$" --query ...)"
+	else
+	    # error
+	fi
     fi
+    $(basename "$1") --within-transaction "\$\$" --update ... \$value
+    $(basename "$1") --end-transaction "\$\$"
     --start-read-transaction OWNER-ID
 				Start a transaction that does not modify TABLE.
 				Until --end-transaction (or TX-TIMEOUT), no
