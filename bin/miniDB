@@ -91,7 +91,7 @@ HELPDESCRIPTION
 				column will be escaped as \\n and \\\\,
 				respectively, so that newlines don't interfere
 				with the line structure and parsing.
-    --as-escaped-lines		Instead of returning the record in the original
+    --as-shell-variables	Instead of returning the record in the original
 				format, return each column as a separate shell
 				variable, named after the schema (or COL0, COL1,
 				... if no schema is passed nor defined on the
