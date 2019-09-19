@@ -24,7 +24,6 @@ assert_counter()
 }
 
 @test "50 sequential non-transactional updates to a table keep all updates" {
-return
     for ((i = 0; i < 50; i++))
     do
 	no_transaction_increment

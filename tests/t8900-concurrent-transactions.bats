@@ -25,7 +25,6 @@ transactional_increment()
 }
 
 @test "50 sequential transactional updates to a table keep all updates" {
-return
     for ((i = 0; i < 50; i++))
     do
 	transactional_increment "$$"
