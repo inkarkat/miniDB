@@ -24,6 +24,8 @@ transactional_increment()
     miniDB "$@" --end-transaction "$owner" --table "$BATS_TEST_NAME"
 }
 
+
+
 @test "50 sequential transactional updates to a table keep all updates" {
     for ((i = 0; i < 50; i++))
     do

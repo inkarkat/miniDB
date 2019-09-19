@@ -19,6 +19,8 @@ transactional_add()
     miniDB "$@" --transactional --table "$BATS_TEST_NAME" --update "$counter	dummy value"
 }
 
+
+
 @test "50 sequential transactional additions to a table keep all keys" {
     for ((i = 0; i < 50; i++))
     do
