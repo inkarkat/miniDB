@@ -9,6 +9,11 @@ setup()
     miniDB --table "$BATS_TEST_NAME" --update "counter	0"
 }
 
+assert_counter()
+{
+    [ "$(miniDB --transactional --table "$BATS_TEST_NAME" --query counter --columns 1)" -eq "${1:?}" ]
+}
+
 transactional_increment()
 {
     owner="${1:?}"; shift
@@ -35,7 +40,7 @@ return
 	transactional_increment "$$"
     done
 
-    [ "$(miniDB --transactional --table "$BATS_TEST_NAME" --query counter --columns 1)" -eq 50 ]
+    assert_counter 50
 }
 
 @test "10 concurrent transactional upgrading read-write updates to a table keep all updates" {
@@ -51,7 +56,7 @@ return
     done
 
     wait
-    [ "$(miniDB --transactional --table "$BATS_TEST_NAME" --query counter --columns 1)" -eq 50 ]
+    assert_counter 50
 }
 
 @test "50 concurrent transactional upgrading read-write updates to a table keep all updates" {
@@ -61,6 +66,6 @@ return
     done
 
     wait
-    [ "$(miniDB --transactional --table "$BATS_TEST_NAME" --query counter --columns 1)" -eq 50 ]
+    assert_counter 50
 }
 

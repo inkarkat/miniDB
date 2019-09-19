@@ -16,6 +16,13 @@ no_transaction_increment()
     miniDB "$@" --no-transaction --table "$BATS_TEST_NAME" --update "counter	$counter"
 }
 
+assert_counter()
+{
+    total="$(miniDB --no-transaction --table "$BATS_TEST_NAME" --query counter --columns 1)"
+    echo >&3 "# total: $total"
+    [ $total "$@" ]
+}
+
 @test "50 sequential non-transactional updates to a table keep all updates" {
 return
     for ((i = 0; i < 50; i++))
@@ -23,7 +30,7 @@ return
 	no_transaction_increment
     done
 
-    [ "$(miniDB --no-transaction --table "$BATS_TEST_NAME" --query counter --columns 1)" -eq 50 ]
+    assert_counter -eq 50
 }
 
 @test "10 concurrent non-transactional updates to a table lose some updates" {
@@ -39,9 +46,7 @@ return
     done
 
     wait
-    total="$(miniDB --no-transaction --table "$BATS_TEST_NAME" --query counter --columns 1)"
-    echo >&3 "# total: $total"
-    [ $total -lt 50 ]
+    assert_counter -lt 50
 }
 
 @test "50 concurrent non-transactional updates to a table lose some updates" {
@@ -51,8 +56,6 @@ return
     done
 
     wait
-    total="$(miniDB --no-transaction --table "$BATS_TEST_NAME" --query counter --columns 1)"
-    echo >&3 "# total: $total"
-    [ $total -lt 50 ]
+    assert_counter -lt 50
 }
 
