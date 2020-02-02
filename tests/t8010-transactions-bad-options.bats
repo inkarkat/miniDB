@@ -10,7 +10,7 @@ assert_tx_error_message()
 @test "conflicting (non-)transaction actions print usage error" {
     run miniDB --start-read-transaction T --table some-entries --query foo
     [ $status -eq 2 ]
-    [ "${lines[0]}" = 'ERROR: Only one of --update, --delete, --drop, --each, --query[-keys], --unescape, --start-read-transaction, --start-write-transaction, --upgrade-to-write-transaction, --within-transaction, --end-transaction, --abort-write-transaction allowed.' ]
+    [ "${lines[0]}" = 'ERROR: Only one of --update, --delete, --truncate, --drop, --each, --query[-keys], --unescape, --start-read-transaction, --start-write-transaction, --upgrade-to-write-transaction, --within-transaction, --end-transaction, --abort-write-transaction allowed.' ]
     [ "${lines[2]%% *}" = 'Usage:' ]
 }
 

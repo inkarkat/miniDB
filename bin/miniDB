@@ -28,6 +28,7 @@ printShortUsage()
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [(-t|--transactional [--transaction-timeout TX-TIMEOUT]|--within-transaction|-T|--no-transaction) [--timeout SECONDS] [--silence-transaction-errors]] ...'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -u|--update RECORD'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -d|--delete KEY'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -C|--truncate'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -D|--drop'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -e|--each "COMMANDLINE" [-e|--each ...] [--before "COMMANDLINE" [--before ...]] [--after "COMMANDLINE" [--after ...]]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -q|--query KEY [-f|--fallback FALLBACK-KEY] [-c|--columns *|COL1 [...]|N [...]] [--as-escaped-lines|--as-shell-variables]'
@@ -71,6 +72,9 @@ HELPDESCRIPTION
 				record with the same KEY is overwritten, else it
 				is appended.
     --delete|-d KEY		Delete any existing record for KEY.
+    --truncate|-C		Delete all existing records; just keep the
+				schema. Creates the table if it doesn't exist
+				yet.
     --drop|-D			Completely wipe all records and the table
 				configuration file itself.
     --query|-q KEY		Query whether a record for KEY exists and return
@@ -213,7 +217,7 @@ containsTab()
 }
 multipleActionsError()
 {
-    echo >&2 "ERROR: Only one of --update, --delete, --drop, --each, --query[-keys], --unescape, --start-read-transaction, --start-write-transaction, --upgrade-to-write-transaction, --within-transaction, --end-transaction, --abort-write-transaction allowed."
+    echo >&2 "ERROR: Only one of --update, --delete, --truncate, --drop, --each, --query[-keys], --unescape, --start-read-transaction, --start-write-transaction, --upgrade-to-write-transaction, --within-transaction, --end-transaction, --abort-write-transaction allowed."
     echo >&2
     printShortUsage "$1" >&2
     exit 2
@@ -311,6 +315,7 @@ do
 			    exit 2
 			fi
 			;;
+	--truncate|-C)	shift; [ "$action" ] && multipleActionsError "$0"; action='truncate';;
 	--drop|-D)	shift; [ "$action" ] && multipleActionsError "$0"; action='drop';;
 	--query|-q)	shift; [ "$action" ] && multipleActionsError "$0"; action='query'; key="$1"; needReadLock=t; shift
 			if containsTab "$key"; then
@@ -569,6 +574,15 @@ delete()
 	-e '${ x; /./{ x; b; }; x; }' \
 	-e '$q 4' \
 	-- "$TABLE_FILESPEC"
+}
+
+truncate()
+{
+    if [ -r "$TABLE_FILESPEC" ]; then
+	sed -i "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e d -e ':skipHeader' -- "$TABLE_FILESPEC" || return 1
+    else
+	initializeTable
+    fi
 }
 
 drop()
