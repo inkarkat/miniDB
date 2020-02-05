@@ -1,17 +1,7 @@
 #!/usr/bin/env bats
 
 load temp_database
-
-setup()
-{
-    initialize_table "$BATS_TEST_NAME" from one-entry
-    clear_lock "$BATS_TEST_NAME"
-}
-
-assert_key_num()
-{
-    [ "$(miniDB --transactional --table "$BATS_TEST_NAME" --query-keys | wc -l)" -eq "${1:?}" ]
-}
+load concurrent
 
 transactional_add()
 {
@@ -21,17 +11,17 @@ transactional_add()
 
 
 
-@test "50 sequential transactional additions to a table keep all keys" {
-    for ((i = 0; i < 50; i++))
+@test "$SEQUENTIAL_NUMBER sequential transactional additions to a table keep all keys" {
+    for ((i = 0; i < $SEQUENTIAL_NUMBER; i++))
     do
 	transactional_add "$i"
     done
 
-    assert_key_num 51
+    assert_key_num -eq $((SEQUENTIAL_NUMBER + INITIAL_ROW_NUM))
 }
 
-@test "10 concurrent transactional additions to a table keep all keys" {
-    for ((i = 0; i < 10; i++))
+@test "$MIXED_NUMBER concurrent transactional additions to a table keep all keys" {
+    for ((i = 0; i < $MIXED_NUMBER; i++))
     do
 	(
 	    transactional_add "$((i * 5 + 0))"
@@ -43,15 +33,15 @@ transactional_add()
     done
 
     wait
-    assert_key_num 51
+    assert_key_num -eq $((MIXED_NUMBER * 5 + INITIAL_ROW_NUM))
 }
 
-@test "50 concurrent transactional additions to a table keep all keys" {
-    for ((i = 0; i < 50; i++))
+@test "$CONCURRENT_NUMBER concurrent transactional additions to a table keep all keys" {
+    for ((i = 0; i < $CONCURRENT_NUMBER; i++))
     do
 	transactional_add "$i" --transaction-timeout 10 &
     done
 
     wait
-    assert_key_num 51
+    assert_key_num -eq $((CONCURRENT_NUMBER + INITIAL_ROW_NUM))
 }

@@ -30,6 +30,7 @@ printShortUsage()
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -d|--delete KEY'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -C|--truncate'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -D|--drop'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '    ... --read-command "COMMANDLINE" [...]|--command "COMMANDLINE" [...] [--] SIMPLECOMMAND [...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -e|--each "COMMANDLINE" [-e|--each ...] [--before "COMMANDLINE" [--before ...]] [--after "COMMANDLINE" [--after ...]]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -q|--query KEY [-f|--fallback FALLBACK-KEY] [-c|--columns *|COL1 [...]|N [...]] [--as-escaped-lines|--as-shell-variables]'
     printf 'Usage: %q -x|--unescape "$(%q %s)"\n' "$(basename "$1")" "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-escaped-lines'
@@ -107,6 +108,12 @@ HELPDESCRIPTION
 				pass multiple columns, but then the column
 				borders would be lost).
     --query-keys|-k		List all available keys.
+    --command "COMMANDLINE"	Execute shell command(s) on TABLE (presumably
+				within a transaction); {} is replaced with its
+				filespec.
+    --read-command "COMMANDLINE"
+				Same, but only acquire a read lock; the commands
+				must not modify the TABLE.
     --each COMMANDLINE		Invoke COMMANDLINE once for each record. Values
 				for the current record's columns are available
 				in shell variables that correspond to the
@@ -217,7 +224,7 @@ containsTab()
 }
 multipleActionsError()
 {
-    echo >&2 "ERROR: Only one of --update, --delete, --truncate, --drop, --each, --query[-keys], --unescape, --start-read-transaction, --start-write-transaction, --upgrade-to-write-transaction, --within-transaction, --end-transaction, --abort-write-transaction allowed."
+    echo >&2 "ERROR: Only one of --update, --delete, --truncate, --drop, --[read-]command, --each, --query[-keys], --unescape, --start-read-transaction, --start-write-transaction, --upgrade-to-write-transaction, --within-transaction, --end-transaction, --abort-write-transaction allowed."
     echo >&2
     printShortUsage "$1" >&2
     exit 2
@@ -252,6 +259,8 @@ typeset -a beforeCommands=()
 typeset -a afterCommands=()
 typeset -a miniTxArgs=()
 isSilenceTransactionErrors=
+isNeedEval=
+typeset -a commands=()
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -358,6 +367,8 @@ do
 			shift
 			table='dummy'	# Need to set this as it's mandatory for all other actions, but not used for unescape.
 			;;
+	--read-command)	shift; [ "$action" ] && [ "$action" != 'commandline' ] && multipleActionsError "$0"; action='commandline'; commands+=(${commands:+;} "$1"); isNeedEval=t; needReadLock=t; shift;;
+	--command)	shift; [ "$action" ] && [ "$action" != 'commandline' ] && multipleActionsError "$0"; action='commandline'; commands+=(${commands:+;} "$1"); isNeedEval=t; needReadLock=; shift;;
 	--each|-e)	shift; [ "$action" -a "$action" != 'each' ] && multipleActionsError "$0"; action='each'; needReadLock=t; commandLines+=("$1"); shift;;
 	--before)	shift; beforeCommands+=(${beforeCommands:+;} "$1"); shift;;
 	--after)	shift; afterCommands+=(${afterCommands:+;} "$1"); shift;;
@@ -366,10 +377,21 @@ do
 	*)		break;;
     esac
 done
-if [ $# -gt 0 ]; then
-    printShortUsage "$0" >&2
-    exit 2
-elif [ ! "$action" ]; then
+if [ $# -ne 0 ]; then
+    [ "$action" ] && [ "$action" != 'commandline' ] && multipleActionsError "$0"
+    action='commandline'
+    needReadLock=
+
+    if [ "$isNeedEval" ]; then
+	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+	# undo the effects of eval.
+	printf -v quotedSimpleCommand '%q ' "$@"
+	commands+=(${commands:+;} "${quotedSimpleCommand//\\\{\\\}/\{\}}")	# %q escapes {}, we don't want that to have it interpolated later.
+    else
+	commands=("$@")
+    fi
+fi
+if [ ! "$action" ]; then
     echo >&2 "ERROR: No action passed."
     echo >&2
     printShortUsage "$0" >&2
@@ -589,6 +611,16 @@ drop()
 {
     [ -e "$TABLE_FILESPEC" ] || return 1
     rm -- "$TABLE_FILESPEC"
+}
+
+commandline()
+{
+    typeset -a interpolatedCommands=("${commands[@]//\{\}/$TABLE_FILESPEC}")
+    if [ "$isNeedEval" ]; then
+	eval "${interpolatedCommands[@]}"
+    else
+	"${interpolatedCommands[@]}"
+    fi
 }
 
 iterateOverRecords()

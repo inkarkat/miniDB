@@ -14,7 +14,7 @@ load temp_database
     assert_table_row "$BATS_TEST_NAME" 1 "# ID	DESCRIPTION	COUNT	NOTES"
 }
 
-@test "trucnate of empty database is a no-op" {
+@test "truncate of empty database is a no-op" {
     initialize_table "$BATS_TEST_NAME" from empty
 
     run miniDB --table "$BATS_TEST_NAME" --truncate

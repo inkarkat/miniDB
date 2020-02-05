@@ -1,7 +1,5 @@
 #!/usr/bin/env bats
 
-load temp_database
-
 @test "drop action with no table prints message and usage instructions" {
     run miniDB --drop
     [ $status -eq 2 ]

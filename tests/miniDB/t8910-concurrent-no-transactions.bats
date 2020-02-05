@@ -1,13 +1,7 @@
 #!/usr/bin/env bats
 
 load temp_database
-
-setup()
-{
-    initialize_table "$BATS_TEST_NAME" from one-entry
-    clear_lock "$BATS_TEST_NAME"
-    miniDB --table "$BATS_TEST_NAME" --update "counter	0"
-}
+load concurrent
 
 no_transaction_increment()
 {
@@ -16,26 +10,19 @@ no_transaction_increment()
     miniDB "$@" --no-transaction --table "$BATS_TEST_NAME" --update "counter	$counter"
 }
 
-assert_counter()
-{
-    total="$(miniDB --no-transaction --table "$BATS_TEST_NAME" --query counter --columns 1)"
-    echo >&3 "# total: $total"
-    [ $total "$@" ]
-}
 
 
-
-@test "50 sequential non-transactional updates to a table keep all updates" {
-    for ((i = 0; i < 50; i++))
+@test "$SEQUENTIAL_NUMBER sequential non-transactional updates to a table keep all updates" {
+    for ((i = 0; i < $SEQUENTIAL_NUMBER; i++))
     do
 	no_transaction_increment
     done
 
-    assert_counter -eq 50
+    assert_counter -eq $SEQUENTIAL_NUMBER
 }
 
-@test "10 concurrent non-transactional updates to a table lose some updates" {
-    for ((i = 0; i < 10; i++))
+@test "$MIXED_NUMBER concurrent non-transactional updates to a table lose some updates" {
+    for ((i = 0; i < $MIXED_NUMBER; i++))
     do
 	(
 	    no_transaction_increment
@@ -47,15 +34,15 @@ assert_counter()
     done
 
     wait
-    assert_counter -lt 50
+    assert_counter -lt $((MIXED_NUMBER * 5))
 }
 
-@test "50 concurrent non-transactional updates to a table lose some updates" {
-    for ((i = 0; i < 50; i++))
+@test "$CONCURRENT_NUMBER concurrent non-transactional updates to a table lose some updates" {
+    for ((i = 0; i < $CONCURRENT_NUMBER; i++))
     do
 	no_transaction_increment &
     done
 
     wait
-    assert_counter -lt 50
+    assert_counter -lt $CONCURRENT_NUMBER
 }
