@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 
+load usage
 load canned_databases
 
 @test "no arguments prints message and usage instructions" {
@@ -25,7 +26,7 @@ load canned_databases
 @test "additional arguments print short help" {
   run miniDB --table some-entries --query foo whatIsMore
     [ $status -eq 2 ]
-    [ "${lines[0]}" = 'ERROR: Only one of --update, --delete, --truncate, --drop, --[read-]command, --each, --query[-keys], --unescape, --start-read-transaction, --start-write-transaction, --upgrade-to-write-transaction, --within-transaction, --end-transaction, --abort-write-transaction allowed.' ]
+    assert_multiple_actions_error
     [ "${lines[2]%% *}" = 'Usage:' ]
 }
 
