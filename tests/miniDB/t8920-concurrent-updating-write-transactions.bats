@@ -24,17 +24,17 @@ transactional_increment()
 
 
 
-@test "50 sequential transactional upgrading read-write updates to a table keep all updates" {
-    for ((i = 0; i < 50; i++))
+@test "$SEQUENTIAL_NUMBER sequential transactional upgrading read-write updates to a table keep all updates" {
+    for ((i = 0; i < $SEQUENTIAL_NUMBER; i++))
     do
 	transactional_increment "$$"
     done
 
-    assert_counter -eq 50
+    assert_counter -eq $SEQUENTIAL_NUMBER
 }
 
-@test "10 concurrent transactional upgrading read-write updates to a table keep all updates" {
-    for ((i = 0; i < 10; i++))
+@test "$MIXED_NUMBER concurrent transactional upgrading read-write updates to a table keep all updates" {
+    for ((i = 0; i < $MIXED_NUMBER; i++))
     do
 	(
 	    transactional_increment "$i"
@@ -46,15 +46,15 @@ transactional_increment()
     done
 
     wait
-    assert_counter -eq 50
+    assert_counter -eq $((MIXED_NUMBER * 5))
 }
 
-@test "50 concurrent transactional upgrading read-write updates to a table keep all updates" {
-    for ((i = 0; i < 50; i++))
+@test "$CONCURRENT_NUMBER concurrent transactional upgrading read-write updates to a table keep all updates" {
+    for ((i = 0; i < $CONCURRENT_NUMBER; i++))
     do
 	transactional_increment "$i" --transaction-timeout 10 &
     done
 
     wait
-    assert_counter -eq 50
+    assert_counter -eq $CONCURRENT_NUMBER
 }

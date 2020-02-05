@@ -21,3 +21,7 @@ assert_key_num()
     echo >&3 "# total: $total"
     [ $total "$@" ]
 }
+
+SEQUENTIAL_NUMBER=50
+MIXED_NUMBER=10
+CONCURRENT_NUMBER=50

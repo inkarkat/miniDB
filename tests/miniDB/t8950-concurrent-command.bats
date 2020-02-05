@@ -10,22 +10,22 @@ increment()
 
 
 
-@test "50 concurrent transactional updates to a table keep all updates" {
-    for ((i = 0; i < 50; i++))
+@test "$CONCURRENT_NUMBER concurrent transactional updates to a table keep all updates" {
+    for ((i = 0; i < $CONCURRENT_NUMBER; i++))
     do
 	increment --transactional --transaction-timeout 10 &
     done
 
     wait
-    assert_counter -eq 50
+    assert_counter -eq $CONCURRENT_NUMBER
 }
 
-@test "50 concurrent non-transactional updates to a table lose some updates" {
-    for ((i = 0; i < 50; i++))
+@test "$CONCURRENT_NUMBER concurrent non-transactional updates to a table lose some updates" {
+    for ((i = 0; i < $CONCURRENT_NUMBER; i++))
     do
 	increment --no-transaction &
     done
 
     wait
-    assert_counter -lt 50
+    assert_counter -lt $CONCURRENT_NUMBER
 }
