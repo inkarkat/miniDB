@@ -3,12 +3,6 @@
 load temp_database
 load concurrent
 
-setup()
-{
-    initialize_table "$BATS_TEST_NAME" from one-entry
-    clear_lock "$BATS_TEST_NAME"
-}
-
 transactional_add()
 {
     counter="${1:?}"; shift
@@ -23,7 +17,7 @@ transactional_add()
 	transactional_add "$i"
     done
 
-    assert_key_num -eq 51
+    assert_key_num -eq $((50 + INITIAL_ROW_NUM))
 }
 
 @test "10 concurrent transactional additions to a table keep all keys" {
@@ -39,7 +33,7 @@ transactional_add()
     done
 
     wait
-    assert_key_num -eq 51
+    assert_key_num -eq $((50 + INITIAL_ROW_NUM))
 }
 
 @test "50 concurrent transactional additions to a table keep all keys" {
@@ -49,5 +43,5 @@ transactional_add()
     done
 
     wait
-    assert_key_num -eq 51
+    assert_key_num -eq $((50 + INITIAL_ROW_NUM))
 }
