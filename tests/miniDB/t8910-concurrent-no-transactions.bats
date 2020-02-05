@@ -1,6 +1,7 @@
 #!/usr/bin/env bats
 
 load temp_database
+load concurrent
 
 setup()
 {
@@ -14,13 +15,6 @@ no_transaction_increment()
     counter="$(miniDB "$@" --no-transaction --table "$BATS_TEST_NAME" --query counter --columns 1)"
     let counter+=1
     miniDB "$@" --no-transaction --table "$BATS_TEST_NAME" --update "counter	$counter"
-}
-
-assert_counter()
-{
-    total="$(miniDB --no-transaction --table "$BATS_TEST_NAME" --query counter --columns 1)"
-    echo >&3 "# total: $total"
-    [ $total "$@" ]
 }
 
 

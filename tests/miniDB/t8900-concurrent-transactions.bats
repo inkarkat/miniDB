@@ -1,17 +1,13 @@
 #!/usr/bin/env bats
 
 load temp_database
+load concurrent
 
 setup()
 {
     initialize_table "$BATS_TEST_NAME" from one-entry
     clear_lock "$BATS_TEST_NAME"
     miniDB --table "$BATS_TEST_NAME" --update "counter	0"
-}
-
-assert_counter()
-{
-    [ "$(miniDB --transactional --table "$BATS_TEST_NAME" --query counter --columns 1)" -eq "${1:?}" ]
 }
 
 transactional_increment()
@@ -32,7 +28,7 @@ transactional_increment()
 	transactional_increment "$$"
     done
 
-    assert_counter 50
+    assert_counter -eq 50
 }
 
 @test "10 concurrent transactional updates to a table keep all updates" {
@@ -48,7 +44,7 @@ transactional_increment()
     done
 
     wait
-    assert_counter 50
+    assert_counter -eq 50
 }
 
 @test "50 concurrent transactional updates to a table keep all updates" {
@@ -58,6 +54,6 @@ transactional_increment()
     done
 
     wait
-    assert_counter 50
+    assert_counter -eq 50
 }
 

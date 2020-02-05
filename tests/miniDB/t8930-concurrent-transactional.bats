@@ -1,16 +1,12 @@
 #!/usr/bin/env bats
 
 load temp_database
+load concurrent
 
 setup()
 {
     initialize_table "$BATS_TEST_NAME" from one-entry
     clear_lock "$BATS_TEST_NAME"
-}
-
-assert_key_num()
-{
-    [ "$(miniDB --transactional --table "$BATS_TEST_NAME" --query-keys | wc -l)" -eq "${1:?}" ]
 }
 
 transactional_add()
@@ -27,7 +23,7 @@ transactional_add()
 	transactional_add "$i"
     done
 
-    assert_key_num 51
+    assert_key_num -eq 51
 }
 
 @test "10 concurrent transactional additions to a table keep all keys" {
@@ -43,7 +39,7 @@ transactional_add()
     done
 
     wait
-    assert_key_num 51
+    assert_key_num -eq 51
 }
 
 @test "50 concurrent transactional additions to a table keep all keys" {
@@ -53,5 +49,5 @@ transactional_add()
     done
 
     wait
-    assert_key_num 51
+    assert_key_num -eq 51
 }

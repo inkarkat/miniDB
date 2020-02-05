@@ -1,18 +1,12 @@
 #!/usr/bin/env bats
 
 load temp_database
+load concurrent
 
 setup()
 {
     initialize_table "$BATS_TEST_NAME" from one-entry
     clear_lock "$BATS_TEST_NAME"
-}
-
-assert_key_num()
-{
-    total="$(miniDB --no-transaction --table "$BATS_TEST_NAME" --query-keys | wc -l)"
-    echo >&3 "# total: $total"
-    [ $total "$@" ]
 }
 
 no_transaction_add()
