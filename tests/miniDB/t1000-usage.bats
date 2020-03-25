@@ -6,7 +6,7 @@ load canned_databases
 @test "no arguments prints message and usage instructions" {
     run miniDB
     [ $status -eq 2 ]
-    [ "${lines[0]}" = 'ERROR: No action passed.' ]
+    [ "${lines[0]}" = "ERROR: No action passed: $ACTIONS" ]
     [ "${lines[2]%% *}" = 'Usage:' ]
 }
 
@@ -33,6 +33,6 @@ load canned_databases
 @test "no action prints message and usage instructions" {
     run miniDB --table some-entries
     [ $status -eq 2 ]
-    [ "${lines[0]}" = 'ERROR: No action passed.' ]
+    [ "${lines[0]}" = "ERROR: No action passed: $ACTIONS" ]
     [ "${lines[2]%% *}" = 'Usage:' ]
 }

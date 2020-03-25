@@ -393,7 +393,7 @@ if [ $# -ne 0 ]; then
     fi
 fi
 if [ ! "$action" ]; then
-    echo >&2 "ERROR: No action passed."
+    echo >&2 "ERROR: No action passed: $ACTIONS"
     echo >&2
     printShortUsage "$0" >&2
     exit 2
