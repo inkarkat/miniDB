@@ -1,0 +1,8 @@
+# ID	OPT1	DESCRIPTION	VAL	OPT2	OPT3	NOTES	OPT4
+full	1	No empty	a value	2	3	a note	4
+first		Empty first	a value	2	3	a note	4
+middle	1	Empty 2+3	a value			a note	4
+last	1	Empty last	a value	2	3	a note	
+opt		Empty opts	a value			a note	
+all							
+none	
