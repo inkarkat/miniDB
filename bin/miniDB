@@ -514,7 +514,7 @@ query()
     case "$outputFormat" in
 	escapedLines)
 	    typeset -a columns=($line)
-	    printf '%s\n' "${columns[@]}"
+	    [ ${#columns[@]} -gt 0 ] && printf '%s\n' "${columns[@]}"
 	    ;;
 	shellVariables)
 	    if [ ${#queriedColumns[@]} -eq 0 ]; then
