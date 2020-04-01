@@ -207,15 +207,22 @@ EXIT STATUS:
 Example:
 HELPTEXT
 printf '%q %s\n' "$(basename "$1")" '--schema "WINDOWID TIMESTAMP" --table creationTimes --update "$WINDOWID	$(date +%s)"'
-printf '%q %s\n' "$(basename "$1")" '--table creationTimes --query 123456'
+printf '\nQueries:\n'
+printf 'queryResult="$(%q %s)";\n' "$(basename "$1")" '--table creationTimes --query 123'
+printf "    IFS=$'\\\\t'"' read -r -a COLS <<<"$queryResult" # Does not handle empty columns!\n'
+printf 'queryResult="$(%q %s)";\n' "$(basename "$1")" '--table creationTimes --query 123 --as-shell-variables'
+printf '    eval "$queryResult" # Using eval.\n'
+printf 'queryResult="$(%q %s)";\n' "$(basename "$1")" '--table creationTimes --query 123 --as-escaped-lines'
+printf '    mapfile -t COLS <<<"$queryResult";\n'
+printf '    COL1="$(%q %s)"; COL2="$(...)" # With unescaping.\n' "$(basename "$1")" '--unescape "${COL[1]}"'
 printf '\nTransactional Example:\n'
 printf '%q %s\n' "$(basename "$1")" '--start-read-transaction "$$" --table creationTimes'
-printf '%q %s\n' "$(basename "$1")" '--within-transaction "$$" --table creationTimes --query 123456'
+printf '%q %s\n' "$(basename "$1")" '--within-transaction "$$" --table creationTimes --query 123'
 printf '%q %s\n' "$(basename "$1")" '--upgrade-to-write-transaction "$$" --table creationTimes'
-printf '%q %s\n' "$(basename "$1")" '--within-transaction "$$" --table creationTimes --delete 123456'
+printf '%q %s\n' "$(basename "$1")" '--within-transaction "$$" --table creationTimes --delete 123'
 printf '%q %s\n' "$(basename "$1")" '--end-transaction "$$" --table creationTimes'
 printf 'or:\n'
-printf '%q %s\n' "$(basename "$1")" '--transactional --table creationTimes --query 123456'
+printf '%q %s\n' "$(basename "$1")" '--transactional --table creationTimes --query 123'
 }
 
 containsTab()
