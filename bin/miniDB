@@ -476,6 +476,18 @@ normalizeSchema()
     normalizedSchema=("${normalizedSchema[@]/#[^a-zA-Z_]/_}")
     normalizedSchema=("${normalizedSchema[@]//[^a-zA-Z0-9_]/_}")
 }
+parseColumns()
+{
+    local line="$1"; shift
+    [ "$line" ] || return
+
+    while [ "${line/$'\t'/}" != "$line" ]
+    do
+	columns+=("${line%%$'\t'*}")
+	line="${line#*$'\t'}"
+    done
+    columns+=("$line")
+}
 
 query()
 {
@@ -500,7 +512,7 @@ query()
     if [ "$isOmitKey" ]; then
 	line="${line#*$'\t'}"
     elif [ ${#queriedColumns[@]} -gt 0 ]; then
-	typeset -a columns=($line)
+	typeset -a columns=(); parseColumns "$line"
 	local newLine=
 	local separator=
 	for c in "${queriedColumns[@]}"
@@ -513,12 +525,12 @@ query()
 
     case "$outputFormat" in
 	escapedLines)
-	    typeset -a columns=($line)
-	    printf '%s\n' "${columns[@]}"
+	    typeset -a columns=(); parseColumns "$line"
+	    [ ${#columns[@]} -gt 0 ] && printf '%s\n' "${columns[@]}"
 	    ;;
 	shellVariables)
 	    if [ ${#queriedColumns[@]} -eq 0 ]; then
-		typeset -a columns=($fullLine)
+		typeset -a columns=(); parseColumns "$fullLine"
 		if [ ${#schema[@]} -eq 0 ]; then
 		    if ! loadSchemaFromTable; then
 			local lastCol=$((${#columns[@]} - 1))
