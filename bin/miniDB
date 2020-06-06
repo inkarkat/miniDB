@@ -243,7 +243,7 @@ literalPattern()
 }
 escapeNewline()
 {
-    sed ':a; s/\\/\\\\/g; x; G; 1s/\n//; s/\n/\\n/; h; N; s/.*\n//; ta' <<<"${1:?}"
+    sed ':a; s/\\/\\\\/g; x; G; 1s/\n//; s/\n/\\n/; h; N; s/.*\n//; ta' <<<"${1?}"
 }
 unescape()
 {
@@ -651,6 +651,10 @@ updateSpecifiedColumns()
     local highestIndex=0
     for c in "${queriedColumns[@]}"
     do
+	if [ $c -eq 0 -a -z "${updatedColumnValues[0]}" ]; then
+	    echo >&2 'ERROR: Key must not be empty.'
+	    exit 2
+	fi
 	local sedUpdatePattern=
 	local literalValue="${updatedColumnValues[$c]}"
 	literalValue="${literalValue//\\/\\\\}"

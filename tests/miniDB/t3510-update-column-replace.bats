@@ -65,3 +65,13 @@ load temp_database
     miniDB --table "$BATS_TEST_NAME" --update 'foo' --column 'NOTES=now with exclamation' --column '1=Total makeover!' --column '0=new' --column 'COUNT=99'
     assert_table_row "$BATS_TEST_NAME" 2 'new	Total makeover!	99	now with exclamation'
 }
+
+@test "update of an existing key and numeric column with empty value clears that column's value" {
+    initialize_table "$BATS_TEST_NAME" from one-entry
+
+    miniDB --table "$BATS_TEST_NAME" --update 'foo' --column "1="
+    assert_table_row "$BATS_TEST_NAME" 2 "foo		42"
+
+    miniDB --table "$BATS_TEST_NAME" --update 'foo' --column "2="
+    assert_table_row "$BATS_TEST_NAME" 2 "foo		"
+}
