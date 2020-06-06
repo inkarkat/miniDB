@@ -27,6 +27,7 @@ printShortUsage()
     printf 'Usage: %q %s\n' "$(basename "$1")" '... (--start-read-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--start-write-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--upgrade-to-write-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--end-transaction OWNER-ID|--abort-write-transaction OWNER-ID) [--timeout SECONDS] [--silence-transaction-errors]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [(-t|--transactional [--transaction-timeout TX-TIMEOUT]|--within-transaction|-T|--no-transaction) [--timeout SECONDS] [--silence-transaction-errors]] ...'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -u|--update RECORD'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -u|--update KEY -v|--column COL1=VALUE1|N=VALUE-N [...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -d|--delete KEY'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -C|--truncate'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -D|--drop'
@@ -72,6 +73,13 @@ HELPDESCRIPTION
 				+ optional additional columns. An existing
 				record with the same KEY is overwritten, else it
 				is appended.
+    --column|-v COL1=VALUE1|N=VALUE-N
+				Instead of updating the entire record, just
+				update specific columns:
+				COL1=VALUE1 columns that match the passed schema
+				N=VALUE-N   columns with the passed indices,
+				starting with 0 for KEY, 1 for COL1
+    --update|-u KEY		Update specific columns of the record for KEY.
     --delete|-d KEY		Delete any existing record for KEY.
     --truncate|-C		Delete all existing records; just keep the
 				schema. Creates the table if it doesn't exist
@@ -260,6 +268,7 @@ preAction='ensureNotTransactional'
 action=
 postAction=
 typeset -a queriedColumns=()
+typeset -A updatedColumnValues=()
 isOmitKey=
 outputFormat=
 typeset -a commandLines=()
@@ -320,6 +329,19 @@ do
 	--fallback|-f)	shift; fallbackKey="$1"; shift;;
 	--update|-u)	shift; [ "$action" ] && multipleActionsError "$0"; action='update'; line="$1"; shift
 			containsTab "$line" || line="${line}$'\t'"   # Need at least one tab separator.
+			;;
+	--column|-v)	shift
+			column="${1%%=*}"
+			value="${1#*=}"
+			if [[ ! "$1" =~ '=' ]] || [ -z "$column" ]; then
+			    echo >&2 'ERROR: Column values must be specified as COL1=VALUE1 or N=VALUE-N.'
+			    echo >&2
+			    printShortUsage "\$1" >&2
+			    exit 2
+			fi
+			queriedColumns+=("$column")
+			updatedColumnValues["$column"]="$value"
+			shift
 			;;
 	--delete|-d)	shift; [ "$action" ] && multipleActionsError "$0"; action='delete'; key="$1"; shift
 			if containsTab "$key"; then
