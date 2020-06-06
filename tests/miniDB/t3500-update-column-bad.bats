@@ -21,3 +21,11 @@ load temp_database
     [ "${lines[2]%% *}" = 'Usage:' ]
     assert_table_row "$BATS_TEST_NAME" \$ "foo	The Foo is here	42"
 }
+
+@test "update of a table with an empty key is rejected" {
+    initialize_table "$BATS_TEST_NAME" from one-entry
+
+    run miniDB --table "$BATS_TEST_NAME" --update '' --column "2=77"
+    [ $status -eq 2 ]
+    [ "${lines[0]}" = 'ERROR: Key must not be empty.' ]
+}

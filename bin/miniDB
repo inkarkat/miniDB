@@ -597,6 +597,14 @@ update()
     # Escape newlines and backslashes.
     [ "${line/[$'\n'\\]/}" = "$line" ] || line="$(escapeNewline "$line")"
 
+    if [ ${#updatedColumnValues[@]} -eq 0 ]; then
+	updateFullRecord
+    else
+	updateSpecifiedColumns
+    fi
+}
+updateFullRecord()
+{
     local key="${line%%$'\t'*}"
     if [ ! "$key" ]; then
 	echo >&2 'ERROR: Key must not be empty.'
@@ -618,6 +626,14 @@ ${line//\\/\\\\}"  \
 	-e "\$a\\
 ${line//\\/\\\\}" \
 	-- "$TABLE_FILESPEC" || return 1
+}
+updateSpecifiedColumns()
+{
+    local key="${line%$'\t'}"	# Undo the appended tab separator.
+    if [ ! "$key" ]; then
+	echo >&2 'ERROR: Key must not be empty.'
+	exit 2
+    fi
 }
 
 delete()
