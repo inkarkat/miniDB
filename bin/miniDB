@@ -237,6 +237,19 @@ containsTab()
 {
     [[ "${1?}" =~ $'\t' ]]
 }
+literalPattern()
+{
+    sed -e 's/[][\$*.^/]/\\&/g'
+}
+escapeNewline()
+{
+    sed ':a; s/\\/\\\\/g; x; G; 1s/\n//; s/\n/\\n/; h; N; s/.*\n//; ta' <<<"${1:?}"
+}
+unescape()
+{
+    [ $# -ge 1 ] && line="$1"
+    echo -e "${line/#-/\\x2d}"
+}
 readonly ACTIONS='--update, --delete, --truncate, --drop, --[read-]command, --each, --query[-keys], --unescape, --start-read-transaction, --start-write-transaction, --upgrade-to-write-transaction, --within-transaction, --end-transaction, --abort-write-transaction'
 multipleActionsError()
 {
@@ -333,14 +346,19 @@ do
 	--column|-v)	shift
 			column="${1%%=*}"
 			value="${1#*=}"
-			if [[ ! "$1" =~ '=' ]] || [ -z "$column" ]; then
+			if [[ ! "$1" =~ = ]] || [ -z "$column" ]; then
 			    echo >&2 'ERROR: Column values must be specified as COL1=VALUE1 or N=VALUE-N.'
 			    echo >&2
 			    printShortUsage "\$1" >&2
 			    exit 2
+			elif containsTab "$value"; then
+			    echo >&2 'ERROR: VALUE cannot contain tab characters.'
+			    echo >&2
+			    printShortUsage "$0" >&2
+			    exit 2
 			fi
 			queriedColumns+=("$column")
-			updatedColumnValues["$column"]="$value"
+			updatedColumnValues["$column"]="$(escapeNewline "$value")"
 			shift
 			;;
 	--delete|-d)	shift; [ "$action" ] && multipleActionsError "$0"; action='delete'; key="$1"; shift
@@ -486,19 +504,6 @@ loadSchemaFromTable()
     [ ${#schema[@]} -gt 0 ]
 }
 
-literalPattern()
-{
-    sed -e 's/[][\$*.^/]/\\&/g'
-}
-escapeNewline()
-{
-    sed ':a; s/\\/\\\\/g; x; G; 1s/\n//; s/\n/\\n/; h; N; s/.*\n//; ta' <<<"${1:?}"
-}
-unescape()
-{
-    [ $# -ge 1 ] && line="$1"
-    echo -e "${line/#-/\\x2d}"
-}
 normalizeSchema()
 {
     normalizedSchema=("${schema[@]}")
