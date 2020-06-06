@@ -269,6 +269,8 @@ needReadLock=
 transactionOwner=
 waitTimeout=
 transactionTimeout=3
+readonly SED_ONE_COLUMN_PATTERN='[^\t]*'
+readonly SED_PRECEDING_COLUMN_PATTERN="\\(${SED_ONE_COLUMN_PATTERN}\\t\\)"
 readonly DEFAULT_SCHEMA='KEY COLUMN ...'
 typeset -a schema=()
 typeset -a normalizedSchema=()
@@ -645,16 +647,22 @@ updateSpecifiedColumns()
     local literalKeyPattern="$(printf %s "$key" | literalPattern)"
 
     typeset -a sedUpdateColumnsArguments=()
+    local highestIndex=0
     for c in "${queriedColumns[@]}"
     do
 	local sedUpdatePattern=
 	local literalValue="${updatedColumnValues[$c]}"
 	literalValue="${literalValue//\\/\\\\}"
 	literalValue="${literalValue//&/\\&}"
-	[ $c -ge 1 ] && sedUpdatePattern='\([^\t]*\t\)\{'"$c"'\}'
-	sedUpdateColumnsArguments+=(-e "s#^\\(${sedUpdatePattern}\\)[^\\t]*#\\1${literalValue//#/\\#}#")
+	[ $c -ge 1 ] && sedUpdatePattern="${SED_PRECEDING_COLUMN_PATTERN}\\{${c}\\}"
+	sedUpdateColumnsArguments+=(-e "s#^\\(${sedUpdatePattern}\\)${SED_ONE_COLUMN_PATTERN}#\\1${literalValue//#/\\#}#")
+
+	[ $c -gt $highestIndex ] && highestIndex=$c
 	echo "**** $c -> ${updatedColumnValues[$c]}    ${sedUpdateColumnsArguments[-1]}"
     done
+    typeset -a sedEnsureColumnsArguments=()
+    [ $highestIndex -ge 2 ] && sedEnsureColumnsArguments=(-e "/${SED_PRECEDING_COLUMN_PATTERN}\\{${highestIndex}\\}/!{ s/\$/\\t/; b updateColumns }")
+    echo "####" "${sedEnsureColumnsArguments[@]}"
 
     # If we find the key, duplicate its line into the hold space; this serves as
     # a marker that we don't need to append the line at the end.
@@ -665,6 +673,7 @@ updateSpecifiedColumns()
 	-e "/^${literalKeyPattern}\\t/{ h; b updateColumns }" \
 	-e b \
 	-e ':updateColumns' \
+	"${sedEnsureColumnsArguments[@]}" \
 	"${sedUpdateColumnsArguments[@]}" \
 	-e ':skipHeader' \
 	-e '${ x; /./{ x; b; }; x; }' \
