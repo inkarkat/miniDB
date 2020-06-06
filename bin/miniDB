@@ -669,6 +669,7 @@ updateSpecifiedColumns()
     do
 	newRecord+=("${updatedColumnValues[$i]}")
     done
+    [ $highestIndex -eq 0 ] && newRecord+=('')	# Our database format requires a tab after the key.
 
     # If we find the key, duplicate its line into the hold space; this serves as
     # a marker that we don't need to append the line at the end.

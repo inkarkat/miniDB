@@ -32,3 +32,13 @@ load temp_database
     assert_table_row "$BATS_TEST_NAME" 3 "quux	This has been added	100"
     assert_table_row "$BATS_TEST_NAME" 4 "quuu	Another addition	200"
 }
+
+@test "update with a new key and a column that renames the key adds a row with the latter" {
+    initialize_table "$BATS_TEST_NAME" from one-entry
+
+    miniDB --table "$BATS_TEST_NAME" --update 'quux' --column '0=changed'
+
+    assert_table_row "$BATS_TEST_NAME" 1 "# KEY	COLUMN	..."
+    assert_table_row "$BATS_TEST_NAME" 2 "foo	The Foo is here	42"
+    assert_table_row "$BATS_TEST_NAME" 3 "changed	"
+}
