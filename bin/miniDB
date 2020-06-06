@@ -638,6 +638,7 @@ ${line//\\/\\\\}" \
 }
 updateSpecifiedColumns()
 {
+    local IFS=$'\t'
     local key="${line%$'\t'}"	# Undo the appended tab separator.
     if [ ! "$key" ]; then
 	echo >&2 'ERROR: Key must not be empty.'
@@ -658,11 +659,16 @@ updateSpecifiedColumns()
 	sedUpdateColumnsArguments+=(-e "s#^\\(${sedUpdatePattern}\\)${SED_ONE_COLUMN_PATTERN}#\\1${literalValue//#/\\#}#")
 
 	[ $c -gt $highestIndex ] && highestIndex=$c
-	echo "**** $c -> ${updatedColumnValues[$c]}    ${sedUpdateColumnsArguments[-1]}"
     done
     typeset -a sedEnsureColumnsArguments=()
     [ $highestIndex -ge 2 ] && sedEnsureColumnsArguments=(-e "/${SED_PRECEDING_COLUMN_PATTERN}\\{${highestIndex}\\}/!{ s/\$/\\t/; b updateColumns }")
-    echo "####" "${sedEnsureColumnsArguments[@]}"
+
+    [ -z "${updatedColumnValues[0]}" ] && updatedColumnValues[0]="$key"	# Include the key (unless it is part of the updated columns).
+    typeset -a newRecord=()
+    for ((i = 0; i <= highestIndex; i++))
+    do
+	newRecord+=("${updatedColumnValues[$i]}")
+    done
 
     # If we find the key, duplicate its line into the hold space; this serves as
     # a marker that we don't need to append the line at the end.
@@ -671,14 +677,14 @@ updateSpecifiedColumns()
     sed -i \
 	"${IGNORE_HEADER_LINE_SED_ARGS[@]}" \
 	-e "/^${literalKeyPattern}\\t/{ h; b updateColumns }" \
-	-e b \
+	-e 'b skipHeader' \
 	-e ':updateColumns' \
 	"${sedEnsureColumnsArguments[@]}" \
 	"${sedUpdateColumnsArguments[@]}" \
 	-e ':skipHeader' \
 	-e '${ x; /./{ x; b; }; x; }' \
 	-e "\$a\\
-${line//\\/\\\\}" \
+${newRecord[*]//\\/\\\\}" \
 	-- "$TABLE_FILESPEC" || return 1
 }
 
