@@ -328,7 +328,7 @@ do
 			;;
 	--fallback|-f)	shift; fallbackKey="$1"; shift;;
 	--update|-u)	shift; [ "$action" ] && multipleActionsError "$0"; action='update'; line="$1"; shift
-			containsTab "$line" || line="${line}$'\t'"   # Need at least one tab separator.
+			containsTab "$line" || line="${line}"$'\t'   # Need at least one tab separator.
 			;;
 	--column|-v)	shift
 			column="${1%%=*}"
