@@ -27,6 +27,7 @@ printShortUsage()
     printf 'Usage: %q %s\n' "$(basename "$1")" '... (--start-read-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--start-write-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--upgrade-to-write-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--end-transaction OWNER-ID|--abort-write-transaction OWNER-ID) [--timeout SECONDS] [--silence-transaction-errors]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [(-t|--transactional [--transaction-timeout TX-TIMEOUT]|--within-transaction|-T|--no-transaction) [--timeout SECONDS] [--silence-transaction-errors]] ...'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -u|--update RECORD'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -u|--update KEY -v|--column COL1=VALUE1|N=VALUE-N [...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -d|--delete KEY'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -C|--truncate'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -D|--drop'
@@ -72,6 +73,13 @@ HELPDESCRIPTION
 				+ optional additional columns. An existing
 				record with the same KEY is overwritten, else it
 				is appended.
+    --update|-u KEY		Update specific columns of the record for KEY.
+    --column|-v COL1=VALUE1|N=VALUE-N
+				Instead of updating the entire record, just
+				update specific columns:
+				COL1=VALUE1 columns that match the passed schema
+				N=VALUE-N   columns with the passed indices,
+				starting with 0 for KEY, 1 for COL1
     --delete|-d KEY		Delete any existing record for KEY.
     --truncate|-C		Delete all existing records; just keep the
 				schema. Creates the table if it doesn't exist
@@ -207,6 +215,7 @@ EXIT STATUS:
 Example:
 HELPTEXT
 printf '%q %s\n' "$(basename "$1")" '--schema "WINDOWID TIMESTAMP" --table creationTimes --update "$WINDOWID	$(date +%s)"'
+printf '%q %s\n' "$(basename "$1")" '--schema "WINDOWID TIMESTAMP" --table creationTimes --update --column "TIMESTAMP=$(date +%s)"'
 printf '\nQueries:\n'
 printf 'queryResult="$(%q %s)";\n' "$(basename "$1")" '--table creationTimes --query 123'
 printf "    IFS=$'\\\\t'"' read -r -a COLS <<<"$queryResult" # Does not handle empty columns!\n'
@@ -229,6 +238,19 @@ containsTab()
 {
     [[ "${1?}" =~ $'\t' ]]
 }
+literalPattern()
+{
+    sed -e 's/[][\$*.^/]/\\&/g'
+}
+escapeNewline()
+{
+    sed ':a; s/\\/\\\\/g; x; G; 1s/\n//; s/\n/\\n/; h; N; s/.*\n//; ta' <<<"${1?}"
+}
+unescape()
+{
+    [ $# -ge 1 ] && line="$1"
+    echo -e "${line/#-/\\x2d}"
+}
 readonly ACTIONS='--update, --delete, --truncate, --drop, --[read-]command, --each, --query[-keys], --unescape, --start-read-transaction, --start-write-transaction, --upgrade-to-write-transaction, --within-transaction, --end-transaction, --abort-write-transaction'
 multipleActionsError()
 {
@@ -248,6 +270,8 @@ needReadLock=
 transactionOwner=
 waitTimeout=
 transactionTimeout=3
+readonly SED_ONE_COLUMN_PATTERN='[^\t]*'
+readonly SED_PRECEDING_COLUMN_PATTERN="\\(${SED_ONE_COLUMN_PATTERN}\\t\\)"
 readonly DEFAULT_SCHEMA='KEY COLUMN ...'
 typeset -a schema=()
 typeset -a normalizedSchema=()
@@ -260,6 +284,7 @@ preAction='ensureNotTransactional'
 action=
 postAction=
 typeset -a queriedColumns=()
+typeset -A updatedColumnValues=()
 isOmitKey=
 outputFormat=
 typeset -a commandLines=()
@@ -319,7 +344,25 @@ do
 			;;
 	--fallback|-f)	shift; fallbackKey="$1"; shift;;
 	--update|-u)	shift; [ "$action" ] && multipleActionsError "$0"; action='update'; line="$1"; shift
-			containsTab "$line" || line="${line}$'\t'"   # Need at least one tab separator.
+			containsTab "$line" || line="${line}"$'\t'   # Need at least one tab separator.
+			;;
+	--column|-v)	shift
+			column="${1%%=*}"
+			value="${1#*=}"
+			if [[ ! "$1" =~ = ]] || [ -z "$column" ]; then
+			    echo >&2 'ERROR: Column values must be specified as COL1=VALUE1 or N=VALUE-N.'
+			    echo >&2
+			    printShortUsage "\$1" >&2
+			    exit 2
+			elif containsTab "$value"; then
+			    echo >&2 'ERROR: VALUE cannot contain tab characters.'
+			    echo >&2
+			    printShortUsage "$0" >&2
+			    exit 2
+			fi
+			queriedColumns+=("$column")
+			updatedColumnValues["$column"]="$(escapeNewline "$value")"
+			shift
 			;;
 	--delete|-d)	shift; [ "$action" ] && multipleActionsError "$0"; action='delete'; key="$1"; shift
 			if containsTab "$key"; then
@@ -441,6 +484,8 @@ translateColumnNamesToIndices()
 	    *)
 		index="${schemaToIndex["${queriedColumns[$i]}"]}"
 		if [ "$index" ]; then
+		    updatedColumnValues[$index]="${updatedColumnValues["${queriedColumns[$i]}"]}"
+		    unset updatedColumnValues["${queriedColumns[$i]}"]
 		    queriedColumns[$i]="$index"
 		elif [ ${#schema[@]} -eq 0 ]; then
 		    return 1
@@ -464,19 +509,6 @@ loadSchemaFromTable()
     [ ${#schema[@]} -gt 0 ]
 }
 
-literalPattern()
-{
-    sed -e 's/[][\$*.^/]/\\&/g'
-}
-escapeNewline()
-{
-    sed ':a; s/\\/\\\\/g; x; G; 1s/\n//; s/\n/\\n/; h; N; s/.*\n//; ta' <<<"${1:?}"
-}
-unescape()
-{
-    [ $# -ge 1 ] && line="$1"
-    echo -e "${line/#-/\\x2d}"
-}
 normalizeSchema()
 {
     normalizedSchema=("${schema[@]}")
@@ -575,6 +607,14 @@ update()
     # Escape newlines and backslashes.
     [ "${line/[$'\n'\\]/}" = "$line" ] || line="$(escapeNewline "$line")"
 
+    if [ ${#updatedColumnValues[@]} -eq 0 ]; then
+	updateFullRecord
+    else
+	updateSpecifiedColumns
+    fi
+}
+updateFullRecord()
+{
     local key="${line%%$'\t'*}"
     if [ ! "$key" ]; then
 	echo >&2 'ERROR: Key must not be empty.'
@@ -595,6 +635,62 @@ ${line//\\/\\\\}"  \
 	-e '${ x; /./{ x; b; }; x; }' \
 	-e "\$a\\
 ${line//\\/\\\\}" \
+	-- "$TABLE_FILESPEC" || return 1
+}
+updateSpecifiedColumns()
+{
+    local IFS=$'\t'
+    local key="${line%$'\t'}"	# Undo the appended tab separator.
+    if [ ! "$key" ]; then
+	echo >&2 'ERROR: Key must not be empty.'
+	exit 2
+    fi
+
+    local literalKeyPattern="$(printf %s "$key" | literalPattern)"
+
+    typeset -a sedUpdateColumnsArguments=()
+    local highestIndex=0
+    for c in "${queriedColumns[@]}"
+    do
+	if [ $c -eq 0 -a -z "${updatedColumnValues[0]}" ]; then
+	    echo >&2 'ERROR: Key must not be empty.'
+	    exit 2
+	fi
+	local sedUpdatePattern=
+	local literalValue="${updatedColumnValues[$c]}"
+	literalValue="${literalValue//\\/\\\\}"
+	literalValue="${literalValue//&/\\&}"
+	[ $c -ge 1 ] && sedUpdatePattern="${SED_PRECEDING_COLUMN_PATTERN}\\{${c}\\}"
+	sedUpdateColumnsArguments+=(-e "s#^\\(${sedUpdatePattern}\\)${SED_ONE_COLUMN_PATTERN}#\\1${literalValue//#/\\#}#")
+
+	[ $c -gt $highestIndex ] && highestIndex=$c
+    done
+    typeset -a sedEnsureColumnsArguments=()
+    [ $highestIndex -ge 2 ] && sedEnsureColumnsArguments=(-e "/${SED_PRECEDING_COLUMN_PATTERN}\\{${highestIndex}\\}/!{ s/\$/\\t/; b updateColumns }")
+
+    [ -z "${updatedColumnValues[0]}" ] && updatedColumnValues[0]="$key"	# Include the key (unless it is part of the updated columns).
+    typeset -a newRecord=()
+    for ((i = 0; i <= highestIndex; i++))
+    do
+	newRecord+=("${updatedColumnValues[$i]}")
+    done
+    [ $highestIndex -eq 0 ] && newRecord+=('')	# Our database format requires a tab after the key.
+
+    # If we find the key, duplicate its line into the hold space; this serves as
+    # a marker that we don't need to append the line at the end.
+    # On the last line, we check the hold space, and skip further processing of
+    # the line if the hold space isn't empty.
+    sed -i \
+	"${IGNORE_HEADER_LINE_SED_ARGS[@]}" \
+	-e "/^${literalKeyPattern}\\t/{ h; b updateColumns }" \
+	-e 'b skipHeader' \
+	-e ':updateColumns' \
+	"${sedEnsureColumnsArguments[@]}" \
+	"${sedUpdateColumnsArguments[@]}" \
+	-e ':skipHeader' \
+	-e '${ x; /./{ x; b; }; x; }' \
+	-e "\$a\\
+${newRecord[*]//\\/\\\\}" \
 	-- "$TABLE_FILESPEC" || return 1
 }
 
