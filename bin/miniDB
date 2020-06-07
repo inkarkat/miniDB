@@ -73,13 +73,13 @@ HELPDESCRIPTION
 				+ optional additional columns. An existing
 				record with the same KEY is overwritten, else it
 				is appended.
+    --update|-u KEY		Update specific columns of the record for KEY.
     --column|-v COL1=VALUE1|N=VALUE-N
 				Instead of updating the entire record, just
 				update specific columns:
 				COL1=VALUE1 columns that match the passed schema
 				N=VALUE-N   columns with the passed indices,
 				starting with 0 for KEY, 1 for COL1
-    --update|-u KEY		Update specific columns of the record for KEY.
     --delete|-d KEY		Delete any existing record for KEY.
     --truncate|-C		Delete all existing records; just keep the
 				schema. Creates the table if it doesn't exist
