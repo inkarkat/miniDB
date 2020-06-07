@@ -215,6 +215,7 @@ EXIT STATUS:
 Example:
 HELPTEXT
 printf '%q %s\n' "$(basename "$1")" '--schema "WINDOWID TIMESTAMP" --table creationTimes --update "$WINDOWID	$(date +%s)"'
+printf '%q %s\n' "$(basename "$1")" '--schema "WINDOWID TIMESTAMP" --table creationTimes --update --column "TIMESTAMP=$(date +%s)"'
 printf '\nQueries:\n'
 printf 'queryResult="$(%q %s)";\n' "$(basename "$1")" '--table creationTimes --query 123'
 printf "    IFS=$'\\\\t'"' read -r -a COLS <<<"$queryResult" # Does not handle empty columns!\n'
