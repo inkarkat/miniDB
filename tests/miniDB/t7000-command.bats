@@ -61,3 +61,23 @@ load temp_database
     [ $status -eq 42 ]
     [ "$output" = '' ]
 }
+
+@test "run a write command-line on table with a reconfigured marker, leaving any {} intact" {
+    initialize_table "$BATS_TEST_NAME" from one-entry
+
+    export MINIDB_FILE_MARKER=@@
+    run miniDB --table "$BATS_TEST_NAME" --command "sed -i '2y/fo/{}/' @@; tail -n 1 @@"
+    [ $status -eq 0 ]
+    [ "$output" = '{}}	The F}} is here	42' ]
+    assert_table_row "$BATS_TEST_NAME" \$ '{}}	The F}} is here	42'
+}
+
+@test "run a combined write command-line and simple command on table with a reconfigured marker, leaving any {} intact" {
+    initialize_table "$BATS_TEST_NAME" from one-entry
+
+    export MINIDB_FILE_MARKER=@@
+    run miniDB --table "$BATS_TEST_NAME" --command "sed -i '2y/fo/{}/' @@" -- tail -n 1 @@
+    [ $status -eq 0 ]
+    [ "$output" = '{}}	The F}} is here	42' ]
+    assert_table_row "$BATS_TEST_NAME" \$ '{}}	The F}} is here	42'
+}
