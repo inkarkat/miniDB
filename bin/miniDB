@@ -293,7 +293,7 @@ outputFormat=
 typeset -a commandLines=()
 typeset -a beforeCommands=()
 typeset -a afterCommands=()
-typeset -a miniTxArgs=()
+typeset -a lockControllerArgs=()
 isSilenceTransactionErrors=
 isNeedEval=
 typeset -a commands=()
@@ -326,7 +326,7 @@ do
 	--end-transaction)		shift; [ -n "$transactionOwner" -o -z "$preAction" ] && multipleTransactionsError "$0"; preAction=''; [ "$action" ] && multipleActionsError "$0"; action='endTransaction'; transactionOwner="$1"; shift;;
 	--abort-write-transaction)	shift; [ -n "$transactionOwner" -o -z "$preAction" ] && multipleTransactionsError "$0"; preAction=''; [ "$action" ] && multipleActionsError "$0"; action='abortWriteTransaction'; transactionOwner="$1"; shift;;
 	--timeout)			shift; waitTimeout="$1"; shift;;
-	--silence-transaction-errors)	isSilenceTransactionErrors=t; miniTxArgs+=("$1"); shift;;
+	--silence-transaction-errors)	isSilenceTransactionErrors=t; lockControllerArgs+=("$1"); shift;;
 	--transaction-timeout)		shift; transactionTimeout="$1"; shift;;
 	--schema|-s)	shift; schema=($1); shift
 			if [ ${#schema[@]} -eq 0 ]; then
@@ -788,11 +788,9 @@ ensureNotTransactional()
 }
 lockedCall()
 {
-    local -r scriptDir="$([ "${BASH_SOURCE[0]}" ] && dirname -- "${BASH_SOURCE[0]}" || exit 3)"
-    [ -d "$scriptDir" ] || { echo >&2 "ERROR: Cannot determine script directory!"; exit 3; }
     local method="${1:?}"; shift
     local mode=write; [ "$needReadLock" ] && mode=read
-    flock "$@" --conflict-exit-code 5 ${waitTimeout:+--timeout "$waitTimeout"} "$LOCK_FILESPEC" "${scriptDir}/../lib/miniTX" "${miniTxArgs[@]}" "$method" "$TABLE_FILESPEC" "$LOCK_FILESPEC" "$transactionOwner" "$mode" "$transactionTimeout"
+    flock "$@" --conflict-exit-code 5 ${waitTimeout:+--timeout "$waitTimeout"} "$LOCK_FILESPEC" transactionalLockController "${lockControllerArgs[@]}" "$method" "$TABLE_FILESPEC" "$LOCK_FILESPEC" "$transactionOwner" "$mode" "$transactionTimeout"
 }
 startTransaction()
 {
