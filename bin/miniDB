@@ -18,7 +18,7 @@
 set -o noglob
 shopt -qs extglob
 
-: ${MINIDB_FILE_MARKER:='{}'}
+: ${MINIDB_FILE_MARKER='{}'}
 fileMarker="$MINIDB_FILE_MARKER"; unset MINIDB_FILE_MARKER
 baseDir="${XDG_CONFIG_HOME:-$HOME/.config}"
 
@@ -120,8 +120,8 @@ HELPDESCRIPTION
 				borders would be lost).
     --query-keys|-k		List all available keys.
     --command "COMMANDLINE"	Execute shell command(s) on TABLE (presumably
-				within a transaction); $fileMarker is replaced with its
-				filespec.
+				within a transaction)${fileMarker:+; $fileMarker is replaced with its
+				filespec}.
     --read-command "COMMANDLINE"
 				Same, but only acquire a read lock; the commands
 				must not modify the TABLE.
