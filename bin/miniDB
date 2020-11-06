@@ -47,7 +47,7 @@ printUsage()
     # This is the short help when launched with no or incorrect arguments.
     # It is printed to stderr to avoid accidental processing.
     printShortUsage "$1" >&2
-    printf >&2 'Try %q --help for more information.\n' "$(basename "$1")"
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
 }
 printLongUsage()
 {
@@ -259,14 +259,14 @@ multipleActionsError()
 {
     echo >&2 "ERROR: Only one of $ACTIONS allowed."
     echo >&2
-    printShortUsage "$1" >&2
+    printUsage "$1" >&2
     exit 2
 }
 multipleTransactionsError()
 {
     echo >&2 "ERROR: --transactional cannot be combined with --no-transaction or the --start-read-transaction|--start-write-transaction|--upgrade-to-write-transaction|--within-transaction|--end-transaction|--abort-write-transaction set, and only one from the set can be given."
     echo >&2
-    printShortUsage "$1" >&2
+    printUsage "$1" >&2
     exit 2
 }
 needReadLock=
@@ -311,7 +311,7 @@ do
 			    temp)	baseDir="${TMPDIR:-/tmp}";;
 			    *)		printf >&2 'ERROR: Invalid base-type "%s".\n' "$1"
 					echo >&2
-					printShortUsage "$0" >&2
+					printUsage "$0" >&2
 					exit 2
 					;;
 			esac
@@ -330,20 +330,20 @@ do
 	--transaction-timeout)		shift; transactionTimeout="$1"; shift;;
 	--schema|-s)	shift; schema=($1); shift
 			if [ ${#schema[@]} -eq 0 ]; then
-			    echo >&2 'ERROR: No schema passed.'
-			    echo >&2
-			    printShortUsage "$0" >&2
+			    echo 'ERROR: No schema passed.'
+			    echo
+			    printUsage "$0"
 			    exit 2
-			fi
+			fi >&2
 			;;
 	--namespace|-n)	shift; namespace="$1"; shift;;
 	--table|-t)	shift; table="$1"; shift
 			if [[ "$table" = */* ]]; then
-			    echo >&2 'ERROR: TABLE must not contain slashes.'
-			    echo >&2
-			    printShortUsage "$0" >&2
+			    echo 'ERROR: TABLE must not contain slashes.'
+			    echo
+			    printUsage "$0"
 			    exit 2
-			fi
+			fi >&2
 			;;
 	--fallback|-f)	shift; fallbackKey="$1"; shift;;
 	--update|-u)	shift; [ "$action" ] && multipleActionsError "$0"; action='update'; line="$1"; shift
@@ -353,43 +353,47 @@ do
 			column="${1%%=*}"
 			value="${1#*=}"
 			if [[ ! "$1" =~ = ]] || [ -z "$column" ]; then
-			    echo >&2 'ERROR: Column values must be specified as COL1=VALUE1 or N=VALUE-N.'
-			    echo >&2
-			    printShortUsage "\$1" >&2
+			    echo 'ERROR: Column values must be specified as COL1=VALUE1 or N=VALUE-N.'
+			    echo
+			    printUsage "\$1"
 			    exit 2
 			elif containsTab "$value"; then
-			    echo >&2 'ERROR: VALUE cannot contain tab characters.'
-			    echo >&2
-			    printShortUsage "$0" >&2
+			    echo 'ERROR: VALUE cannot contain tab characters.'
+			    echo
+			    printUsage "$0"
 			    exit 2
-			fi
+			fi >&2
 			queriedColumns+=("$column")
 			updatedColumnValues["$column"]="$(escapeNewline "$value")"
 			shift
 			;;
 	--delete|-d)	shift; [ "$action" ] && multipleActionsError "$0"; action='delete'; key="$1"; shift
 			if containsTab "$key"; then
-			    echo >&2 'ERROR: KEY cannot contain tab characters.'
-			    echo >&2
-			    printShortUsage "$0" >&2
+			    echo 'ERROR: KEY cannot contain tab characters.'
+			    echo
+			    printUsage "$0"
 			    exit 2
 			elif [ ! "$key" ]; then
-			    echo >&2 'ERROR: Key must not be empty.'
+			    echo 'ERROR: Key must not be empty.'
+			    echo
+			    printUsage "$0"
 			    exit 2
-			fi
+			fi >&2
 			;;
 	--truncate|-C)	shift; [ "$action" ] && multipleActionsError "$0"; action='truncate';;
 	--drop|-D)	shift; [ "$action" ] && multipleActionsError "$0"; action='drop';;
 	--query|-q)	shift; [ "$action" ] && multipleActionsError "$0"; action='query'; key="$1"; needReadLock=t; shift
 			if containsTab "$key"; then
-			    echo >&2 'ERROR: KEY cannot contain tab characters.'
-			    echo >&2
-			    printShortUsage "$0" >&2
+			    echo 'ERROR: KEY cannot contain tab characters.'
+			    echo
+			    printUsage "$0"
 			    exit 2
 			elif [ ! "$key" ]; then
-			    echo >&2 'ERROR: Key must not be empty.'
+			    echo 'ERROR: Key must not be empty.'
+			    echo
+			    printUsage "$0"
 			    exit 2
-			fi
+			fi >&2
 			;;
 	--query-keys|-k)
 			shift; [ "$action" ] && multipleActionsError "$0"; action='queryKeys'; needReadLock=t;;
@@ -399,11 +403,11 @@ do
 			else
 			    queriedColumns=($1)
 			    if [ ${#queriedColumns[@]} -eq 0 ]; then
-				echo >&2 'ERROR: No columns passed.'
-				echo >&2
-				printShortUsage "$0" >&2
+				echo 'ERROR: No columns passed.'
+				echo
+				printUsage "$0"
 				exit 2
-			    fi
+			    fi >&2
 			fi
 			shift
 			;;
@@ -447,21 +451,21 @@ if [ $# -ne 0 ]; then
     fi
 fi
 if [ ! "$action" ]; then
-    echo >&2 "ERROR: No action passed: $ACTIONS"
-    echo >&2
-    printShortUsage "$0" >&2
+    echo "ERROR: No action passed: $ACTIONS"
+    echo
+    printUsage "$0"
     exit 2
 elif [ ! "$table" ]; then
-    echo >&2 'ERROR: No TABLE passed.'
-    echo >&2
-    printShortUsage "$0" >&2
+    echo 'ERROR: No TABLE passed.'
+    echo
+    printUsage "$0"
     exit 2
 elif [ "${transactionOwner:0:1}" = '*' ]; then
-    echo >&2 'ERROR: OWNER-ID must not start with *.'
-    echo >&2
-    printShortUsage "$0" >&2
+    echo 'ERROR: OWNER-ID must not start with *.'
+    echo
+    printUsage "$0"
     exit 2
-fi
+fi >&2
 if [ "$action" = unescape ]; then
     # Need no transactions around unescaping.
     preAction=
