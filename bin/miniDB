@@ -610,7 +610,7 @@ initializeTable()
 }
 update()
 {
-    [ -r "$TABLE_FILESPEC" ] || initializeTable  # Need to write at least one line so that sed does processing; can use that for a descriptive header.
+    [ -s "$TABLE_FILESPEC" ] || initializeTable  # Need to write at least one line so that sed does processing; can use that for a descriptive header.
 
     # Escape newlines and backslashes.
     [ "${line/[$'\n'\\]/}" = "$line" ] || line="$(escapeNewline "$line")"
@@ -724,7 +724,7 @@ delete()
 
 truncate()
 {
-    if [ -r "$TABLE_FILESPEC" ]; then
+    if [ -s "$TABLE_FILESPEC" ]; then
 	sed -i "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e d -e ':skipHeader' -- "$TABLE_FILESPEC" || return 1
     else
 	initializeTable

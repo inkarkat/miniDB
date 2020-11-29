@@ -14,6 +14,15 @@ setup()
     assert_table_row "$BATS_TEST_NAME" \$ "key	value"
 }
 
+@test "update of a completely empty table initializes it with a default header" {
+    > "${XDG_CONFIG_HOME}/$BATS_TEST_NAME"
+
+    miniDB --table "$BATS_TEST_NAME" --update "key	value"
+
+    assert_table_row "$BATS_TEST_NAME" 1 "# KEY	COLUMN	..."
+    assert_table_row "$BATS_TEST_NAME" \$ "key	value"
+}
+
 @test "update of a non-existing table with passed schema initializes it with a custom header" {
     miniDB --table "$BATS_TEST_NAME" --schema "ID SURNAME GIVEN-NAME" --update "key	value"
 
