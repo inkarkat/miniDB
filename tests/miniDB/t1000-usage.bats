@@ -11,20 +11,20 @@ load canned_databases
 }
 
 @test "invalid option prints message and usage instructions" {
-  run miniDB --invalid-option
+    run miniDB --invalid-option
     [ $status -eq 2 ]
     [ "${lines[0]}" = 'ERROR: Unknown option "--invalid-option"!' ]
     [ "${lines[2]%% *}" = 'Usage:' ]
 }
 
 @test "-h prints long usage help" {
-  run miniDB -h
+    run miniDB -h
     [ $status -eq 0 ]
     [ "${lines[0]%% *}" != 'Usage:' ]
 }
 
 @test "additional arguments print short help" {
-  run miniDB --table some-entries --query foo whatIsMore
+    run miniDB --table some-entries --query foo whatIsMore
     [ $status -eq 2 ]
     assert_multiple_actions_error
     [ "${lines[2]%% *}" = 'Usage:' ]
