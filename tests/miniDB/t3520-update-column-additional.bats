@@ -31,9 +31,8 @@ load temp_database
 }
 
 @test "update of an existing key with numerical columns far beyond the existing ones and in mixed order" {
-skip
     initialize_table "$BATS_TEST_NAME" from one-entry
 
     run miniDB --table "$BATS_TEST_NAME" --update 'foo' --column '10=tenth column' --column '9=ninth column' --column '2=More columns got added' --column '7=seventh' --column '6=sixth'
-    assert_table_row "$BATS_TEST_NAME" \$ 'foo	More columns got added	42				sixth	seventh		ninth column	tenth column'
+    assert_table_row "$BATS_TEST_NAME" \$ 'foo	The Foo is here	More columns got added				sixth	seventh		ninth column	tenth column'
 }
