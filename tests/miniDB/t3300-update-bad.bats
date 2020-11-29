@@ -14,5 +14,5 @@ load temp_database
 
     run miniDB --table "$BATS_TEST_NAME" --update "	The key is empty	0"
     [ $status -eq 2 ]
-    [ "${lines[0]}" = 'ERROR: Key must not be empty.' ]
+    [ "${lines[0]}" = 'ERROR: KEY must not be empty.' ]
 }

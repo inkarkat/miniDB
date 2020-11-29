@@ -27,7 +27,7 @@ load temp_database
 
     run miniDB --table "$BATS_TEST_NAME" --update '' --column "2=77"
     [ $status -eq 2 ]
-    [ "$output" = 'ERROR: Key must not be empty.' ]
+    [ "$output" = 'ERROR: KEY must not be empty.' ]
 }
 
 @test "update of a column with column value that contains a tab prints error and usage instructions and does not modify the table" {
@@ -45,7 +45,7 @@ load temp_database
 
     run miniDB --table "$BATS_TEST_NAME" --update 'foo' --column "0="
     [ $status -eq 2 ]
-    [ "$output" = 'ERROR: Key must not be empty.' ]
+    [ "$output" = 'ERROR: KEY must not be empty.' ]
     assert_table_row "$BATS_TEST_NAME" \$ "foo	The Foo is here	42"
 }
 
@@ -54,6 +54,6 @@ load temp_database
 
     run miniDB --schema 'KEY TEXT NUMBER' --table "$BATS_TEST_NAME" --update 'foo' --column "KEY="
     [ $status -eq 2 ]
-    [ "$output" = 'ERROR: Key must not be empty.' ]
+    [ "$output" = 'ERROR: KEY must not be empty.' ]
     assert_table_row "$BATS_TEST_NAME" \$ "foo	The Foo is here	42"
 }

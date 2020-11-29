@@ -374,7 +374,7 @@ do
 			    printUsage "$0"
 			    exit 2
 			elif [ ! "$key" ]; then
-			    echo 'ERROR: Key must not be empty.'
+			    echo 'ERROR: KEY must not be empty.'
 			    echo
 			    printUsage "$0"
 			    exit 2
@@ -389,7 +389,7 @@ do
 			    printUsage "$0"
 			    exit 2
 			elif [ ! "$key" ]; then
-			    echo 'ERROR: Key must not be empty.'
+			    echo 'ERROR: KEY must not be empty.'
 			    echo
 			    printUsage "$0"
 			    exit 2
@@ -625,7 +625,7 @@ updateFullRecord()
 {
     local key="${line%%$'\t'*}"
     if [ ! "$key" ]; then
-	echo >&2 'ERROR: Key must not be empty.'
+	echo >&2 'ERROR: KEY must not be empty.'
 	exit 2
     fi
     local literalKeyPattern="$(printf %s "$key" | literalPattern)"
@@ -650,7 +650,7 @@ updateSpecifiedColumns()
     local IFS=$'\t'
     local key="${line%$'\t'}"	# Undo the appended tab separator.
     if [ ! "$key" ]; then
-	echo >&2 'ERROR: Key must not be empty.'
+	echo >&2 'ERROR: KEY must not be empty.'
 	exit 2
     fi
 
@@ -661,7 +661,7 @@ updateSpecifiedColumns()
     for c in "${queriedColumns[@]}"
     do
 	if [ $c -eq 0 -a -z "${updatedColumnValues[0]}" ]; then
-	    echo >&2 'ERROR: Key must not be empty.'
+	    echo >&2 'ERROR: KEY must not be empty.'
 	    exit 2
 	fi
 	local sedUpdatePattern=
