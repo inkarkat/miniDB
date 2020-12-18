@@ -15,7 +15,7 @@ setup()
 }
 
 @test "update of a completely empty table initializes it with a default header" {
-    > "${XDG_CONFIG_HOME}/$BATS_TEST_NAME"
+    > "${XDG_DATA_HOME}/$BATS_TEST_NAME"
 
     miniDB --table "$BATS_TEST_NAME" --update "key	value"
 

@@ -20,7 +20,7 @@ shopt -qs extglob
 
 : ${MINIDB_FILE_MARKER='{}'}
 fileMarker="$MINIDB_FILE_MARKER"; unset MINIDB_FILE_MARKER
-baseDir="${XDG_CONFIG_HOME:-$HOME/.config}"
+baseDir="${XDG_DATA_HOME:-$HOME/.local/share}"
 
 printShortUsage()
 {
@@ -62,10 +62,10 @@ HELPDESCRIPTION
     cat <<HELPTEXT
     --basedir DIR		Set the base directory in which the NAMESPACE
 				dir / TABLE file is stored. Defaults to
-				XDG_CONFIG_HOME=${baseDir}.
+				XDG_DATA_HOME=${baseDir}
     --base-type config|data|runtime|cache|temp
 				Set the base directory based on the passed
-				characterization. The default is "config".
+				characterization. The default is "data".
     --schema|-s "KEY COL1 [...]"Optional database schema; will be included as a
 				commented first line in the data file.
     --namespace|-n NAMESPACE	Optional application / use case for this tool's
