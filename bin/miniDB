@@ -355,7 +355,7 @@ do
 			if [[ ! "$1" =~ = ]] || [ -z "$column" ]; then
 			    echo 'ERROR: Column values must be specified as COL1=VALUE1 or N=VALUE-N.'
 			    echo
-			    printUsage "\$1"
+			    printUsage "$0"
 			    exit 2
 			elif containsTab "$value"; then
 			    echo 'ERROR: VALUE cannot contain tab characters.'
