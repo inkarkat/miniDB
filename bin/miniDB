@@ -122,6 +122,7 @@ HELPDESCRIPTION
     --command "COMMANDLINE"	Execute shell command(s) on TABLE (presumably
 				within a transaction)${fileMarker:+; $fileMarker is replaced with its
 				filespec}.
+				No check is done whether TABLE already exists.
     --read-command "COMMANDLINE"
 				Same, but only acquire a read lock; the commands
 				must not modify the TABLE.
@@ -219,6 +220,7 @@ Example:
 HELPTEXT
 printf '%q %s\n' "$(basename "$1")" '--schema "WINDOWID TIMESTAMP" --table creationTimes --update "$WINDOWID	$(date +%s)"'
 printf '%q %s\n' "$(basename "$1")" '--schema "WINDOWID TIMESTAMP" --table creationTimes --update --column "TIMESTAMP=$(date +%s)"'
+printf '%q %s\n' "$(basename "$1")" "--schema \"ID VALUE\" -t data --command 'if [ -r {} ]; then tail -n +2 {}; else echo >&2 \"No records exist yet.\"; exit 1; fi'"
 printf '\nQueries:\n'
 printf 'queryResult="$(%q %s)";\n' "$(basename "$1")" '--table creationTimes --query 123'
 printf "    IFS=$'\\\\t'"' read -r -a COLS <<<"$queryResult" # Does not handle empty columns!\n'
