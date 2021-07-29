@@ -69,9 +69,9 @@ HELPDESCRIPTION
     --schema|-s "KEY COL1 [...]"Optional database schema; will be included as a
 				commented first line in the data file.
     --namespace|-n NAMESPACE	Optional application / use case for this tool's
-				use. Determines the configuration directory.
+				use. Determines the table directory.
     --table|-t TABLE		Category in the context of the application.
-				Determines the configuration file.
+				Determines the table file.
     --update|-u RECORD		Record RECORD, which must consist of a KEY + tab
 				+ optional additional columns. An existing
 				record with the same KEY is overwritten, else it
@@ -87,8 +87,8 @@ HELPDESCRIPTION
     --truncate|-C		Delete all existing records; just keep the
 				schema. Creates the table if it doesn't exist
 				yet.
-    --drop|-D			Completely wipe all records and the table
-				configuration file itself.
+    --drop|-D			Completely wipe all records and the table file
+				itself.
     --query|-q KEY		Query whether a record for KEY exists and return
 				it.
     --fallback|-f FALLBACK-KEY
