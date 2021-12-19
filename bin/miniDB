@@ -288,7 +288,6 @@ fallbackKey=
 preAction='ensureNotTransactional'
 action=
 postAction=
-postPostAction=
 typeset -a queriedColumns=()
 typeset -A updatedColumnValues=()
 isOmitKey=
@@ -828,7 +827,10 @@ upgradeTransaction()
 }
 endTransaction()
 {
-    lockedCall TX-END
+    lockedCall TX-END && \
+	if [ ! -e "$TABLE_FILESPEC" ]; then
+	    removeLock
+	fi
 }
 abortWriteTransaction()
 {
@@ -864,8 +866,6 @@ fi
 "$action"
 status=$?
 if [ "$postAction" ]; then
-    "$postAction" && if [ "$postPostAction" ]; then
-	"$postPostAction"
-    fi
+    "$postAction"
 fi
 exit $status
