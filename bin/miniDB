@@ -288,6 +288,7 @@ fallbackKey=
 preAction='ensureNotTransactional'
 action=
 postAction=
+postPostAction=
 typeset -a queriedColumns=()
 typeset -A updatedColumnValues=()
 isOmitKey=
@@ -383,7 +384,7 @@ do
 			fi >&2
 			;;
 	--truncate|-C)	shift; [ "$action" ] && multipleActionsError "$0"; action='truncate';;
-	--drop|-D)	shift; [ "$action" ] && multipleActionsError "$0"; action='drop';;
+	--drop|-D)	shift; [ "$action" ] && multipleActionsError "$0"; action='drop'; postPostAction='removeLock';;
 	--query|-q)	shift; [ "$action" ] && multipleActionsError "$0"; action='query'; key="$1"; needReadLock=t; shift
 			if containsTab "$key"; then
 			    echo 'ERROR: KEY cannot contain tab characters.'
@@ -740,6 +741,11 @@ drop()
     rm -- "$TABLE_FILESPEC"
 }
 
+removeLock()
+{
+    rm --force -- "$LOCK_FILESPEC" 2>/dev/null
+}
+
 commandline()
 {
     typeset -a interpolatedCommands=("${commands[@]//"$fileMarker"/$TABLE_FILESPEC}")
@@ -858,6 +864,8 @@ fi
 "$action"
 status=$?
 if [ "$postAction" ]; then
-    "$postAction"
+    "$postAction" && if [ "$postPostAction" ]; then
+	"$postPostAction"
+    fi
 fi
 exit $status
