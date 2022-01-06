@@ -317,6 +317,7 @@ typeset -a queriedColumns=()
 typeset -a updatedColumns=()
 typeset -A updatedColumnValues=()
 isOmitKey=
+isOutputFullRecord=
 outputFormat=
 typeset -a commandLines=()
 typeset -a beforeCommands=()
@@ -436,6 +437,8 @@ do
 	--columns|-c)	shift
 			if [ "$1" = '*' ]; then
 			    isOmitKey=t
+			elif [ "$1" = '0*' ]; then
+			    isOutputFullRecord=t
 			else
 			    queriedColumns=($1)
 			    if [ ${#queriedColumns[@]} -eq 0 ]; then
@@ -676,7 +679,7 @@ update()
     # Escape newlines and backslashes.
     [ "${line/[$'\n'\\]/}" = "$line" ] || line="$(escapeNewline "$line")"
 
-    local isOutput; [ ${#queriedColumns[@]} -gt 0 ] || [ "$isOmitKey" ] && isOutput=t
+    local isOutput; [ ${#queriedColumns[@]} -gt 0 ] || [ "$isOmitKey" ] || [ "$isOutputFullRecord" ] && isOutput=t
 
     if [ ${#updatedColumnValues[@]} -eq 0 ]; then
 	updateFullRecord "$isOutput"
