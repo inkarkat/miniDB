@@ -695,7 +695,7 @@ updateSpecifiedColumns()
 	    echo >&2 'ERROR: KEY must not be empty.'
 	    exit 2
 	fi
-	local sedUpdatePattern=
+	local sedUpdatePattern='\(\)'	# Need to use empty capture group so the group numbering stays the same when $SED_PRECEDING_COLUMN_PATTERN is used.
 	[ $c -ge 1 ] && sedUpdatePattern="${SED_PRECEDING_COLUMN_PATTERN}\\{${c}\\}"
 	if [ "${updatedColumnValues[$c]}" = "$INCREMENT_VALUE" ]; then
 	    [ ${#sedProcedures[@]} -eq 0 ] && sedProcedures+=(-e b)

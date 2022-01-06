@@ -1,5 +1,5 @@
 # KEY	APPLES	BANANAS	ORANGES	COMMENT
-zero	0	0	0	nothing there
+0	0	0	0	nothing there
 empty				not even a zero
 small	1	9	2	minimal
 medium	33	49	99	good

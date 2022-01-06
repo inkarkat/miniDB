@@ -26,43 +26,57 @@ load temp_database
 @test "increment zero apples" {
     initialize_table "$BATS_TEST_NAME" from numbers
 
-    miniDB --table "$BATS_TEST_NAME" --update 'zero' --column APPLES++
-    assert_table_row "$BATS_TEST_NAME" 2 "zero	1	0	0	nothing there"
+    miniDB --table "$BATS_TEST_NAME" --update '0' --column APPLES++
+    assert_table_row "$BATS_TEST_NAME" 2 "0	1	0	0	nothing there"
 }
 
 @test "increment zero bananas" {
     initialize_table "$BATS_TEST_NAME" from numbers
 
-    miniDB --table "$BATS_TEST_NAME" --update 'zero' --column BANANAS++
-    assert_table_row "$BATS_TEST_NAME" 2 "zero	0	1	0	nothing there"
+    miniDB --table "$BATS_TEST_NAME" --update '0' --column BANANAS++
+    assert_table_row "$BATS_TEST_NAME" 2 "0	0	1	0	nothing there"
 }
 
 @test "increment zero apples and bananas" {
     initialize_table "$BATS_TEST_NAME" from numbers
 
-    miniDB --table "$BATS_TEST_NAME" --update 'zero' --column APPLES++ --column BANANAS++
-    assert_table_row "$BATS_TEST_NAME" 2 "zero	1	1	0	nothing there"
+    miniDB --table "$BATS_TEST_NAME" --update '0' --column APPLES++ --column BANANAS++
+    assert_table_row "$BATS_TEST_NAME" 2 "0	1	1	0	nothing there"
 }
 
 @test "increment zero apples, bananas, and comment" {
     initialize_table "$BATS_TEST_NAME" from numbers
 
-    miniDB --table "$BATS_TEST_NAME" --update 'zero' --column APPLES++ --column BANANAS++ --column 'COMMENT=got small delivery'
-    assert_table_row "$BATS_TEST_NAME" 2 "zero	1	1	0	got small delivery"
+    miniDB --table "$BATS_TEST_NAME" --update '0' --column APPLES++ --column BANANAS++ --column 'COMMENT=got small delivery'
+    assert_table_row "$BATS_TEST_NAME" 2 "0	1	1	0	got small delivery"
 }
 
 @test "increment zero apples and bananas in different order" {
     initialize_table "$BATS_TEST_NAME" from numbers
 
-    miniDB --table "$BATS_TEST_NAME" --update 'zero' --column BANANAS++ --column APPLES++
-    assert_table_row "$BATS_TEST_NAME" 2 "zero	1	1	0	nothing there"
+    miniDB --table "$BATS_TEST_NAME" --update '0' --column BANANAS++ --column APPLES++
+    assert_table_row "$BATS_TEST_NAME" 2 "0	1	1	0	nothing there"
 }
 
 @test "increment zero apples, bananas, and comment in different order" {
     initialize_table "$BATS_TEST_NAME" from numbers
 
-    miniDB --table "$BATS_TEST_NAME" --update 'zero' --column BANANAS++ --column 'COMMENT=got small delivery' --column APPLES++
-    assert_table_row "$BATS_TEST_NAME" 2 "zero	1	1	0	got small delivery"
+    miniDB --table "$BATS_TEST_NAME" --update '0' --column BANANAS++ --column 'COMMENT=got small delivery' --column APPLES++
+    assert_table_row "$BATS_TEST_NAME" 2 "0	1	1	0	got small delivery"
+}
+
+@test "increment zero numeric key" {
+    initialize_table "$BATS_TEST_NAME" from numbers
+
+    miniDB --table "$BATS_TEST_NAME" --update '0' --column 0++
+    assert_table_row "$BATS_TEST_NAME" 2 "1	0	0	0	nothing there"
+}
+
+@test "increment zero schema name key" {
+    initialize_table "$BATS_TEST_NAME" from numbers
+
+    miniDB --table "$BATS_TEST_NAME" --update '0' --column KEY++
+    assert_table_row "$BATS_TEST_NAME" 2 "1	0	0	0	nothing there"
 }
 
 @test "increment small apples, bananas, and oranges" {
