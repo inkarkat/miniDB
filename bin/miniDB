@@ -695,7 +695,7 @@ updateFullRecord()
     # a marker that we don't need to append the line at the end.
     # On the last line, we check the hold space, and skip further processing of
     # the line if the hold space isn't empty.
-    sedWrapper -i \
+    sedWrapperHandlingQueriedColumns -i \
 	"${IGNORE_HEADER_LINE_SED_ARGS[@]}" \
 	-e "/^${literalKeyPattern}\\t/h" \
 	-e "/^${literalKeyPattern}\\t/c\\
@@ -787,7 +787,7 @@ updateSpecifiedColumns()
     # a marker that we don't need to append the line at the end.
     # On the last line, we check the hold space, and skip further processing of
     # the line if the hold space isn't empty.
-    sedWrapper -i \
+    sedWrapperHandlingQueriedColumns -i \
 	"${IGNORE_HEADER_LINE_SED_ARGS[@]}" \
 	-e "/^${literalKeyPattern}\\t/{ h; b updateColumns }" \
 	-e 'b skipHeader' \
@@ -800,6 +800,10 @@ updateSpecifiedColumns()
 ${newRecord[*]//\\/\\\\}" \
 	"${sedProcedures[@]}" \
 	-- "$TABLE_FILESPEC" || return 1
+}
+sedWrapperHandlingQueriedColumns()
+{
+    sedWrapper "$@"
 }
 
 delete()
