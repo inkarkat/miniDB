@@ -41,6 +41,7 @@ printShortUsage()
     printf 'Usage: eval "$(%q %s)"\n' "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-shell-variables'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -k|--query-keys'
     printf 'Usage: %q %s | %q -x|--unescape [-]\n' "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-escaped-lines' "$(basename "$1")"
+    printf 'Usage: [DEBUG=%q:sed[!]] %q ...	DEBUG=%q:sed also prints it, DEBUG=%q:sed! just prints and skips execution\n' "$(basename "$1")" "$(basename "$1")" "$(basename "$1")" "$(basename "$1")"
 }
 printUsage()
 {
@@ -245,6 +246,16 @@ printf '%q %s\n' "$(basename "$1")" '--within-transaction "$$" --table creationT
 printf '%q %s\n' "$(basename "$1")" '--end-transaction "$$" --table creationTimes'
 printf 'or:\n'
 printf '%q %s\n' "$(basename "$1")" '--transactional --table creationTimes --query 123'
+}
+
+sedWrapper()
+{
+    local sedPrefix
+    case ",${DEBUG:-}," in
+	*,miniDB:sed,*) sedPrefix=verbose;;
+	*,miniDB:sed\!,*) sedPrefix=echotrace;;
+    esac
+    VERBOSE_IFS="${VERBOSE_IFS-newline}" ECHOTRACE_IFS="${ECHOTRACE_IFS-newline}" $sedPrefix sed "$@"
 }
 
 containsTab()
@@ -565,9 +576,9 @@ query()
 	# Get the $key line, with fallback to $fallbackKey
 	[ "${fallbackKey/[$'\n'\\]/}" = "$fallbackKey" ] || fallbackKey="$(escapeNewline "$fallbackKey")"
 	local literalFallbackPattern="$(printf %s "$fallbackKey" | literalPattern)"
-	local line="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e "/^${literalKeyPattern}\\t\\|^${literalFallbackPattern}\\t/H" -e "\${ g; s/^\\n//; s/^${literalFallbackPattern}\\t.*\\n//; s/\\n${literalFallbackPattern}\\t.*\$//; /./p }" -e ':skipHeader' -- "$TABLE_FILESPEC")"
+	local line="$(sedWrapper -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e "/^${literalKeyPattern}\\t\\|^${literalFallbackPattern}\\t/H" -e "\${ g; s/^\\n//; s/^${literalFallbackPattern}\\t.*\\n//; s/\\n${literalFallbackPattern}\\t.*\$//; /./p }" -e ':skipHeader' -- "$TABLE_FILESPEC")"
     else
-	local line="$(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e "/^${literalKeyPattern}\\t/p" -e ':skipHeader' -- "$TABLE_FILESPEC")"
+	local line="$(sedWrapper -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e "/^${literalKeyPattern}\\t/p" -e ':skipHeader' -- "$TABLE_FILESPEC")"
     fi
     [ "$line" ] || return 4
 
@@ -651,7 +662,7 @@ updateFullRecord()
     # a marker that we don't need to append the line at the end.
     # On the last line, we check the hold space, and skip further processing of
     # the line if the hold space isn't empty.
-    sed -i \
+    sedWrapper -i \
 	"${IGNORE_HEADER_LINE_SED_ARGS[@]}" \
 	-e "/^${literalKeyPattern}\\t/h" \
 	-e "/^${literalKeyPattern}\\t/c\\
@@ -728,7 +739,7 @@ updateSpecifiedColumns()
     # a marker that we don't need to append the line at the end.
     # On the last line, we check the hold space, and skip further processing of
     # the line if the hold space isn't empty.
-    sed -i \
+    sedWrapper -i \
 	"${IGNORE_HEADER_LINE_SED_ARGS[@]}" \
 	-e "/^${literalKeyPattern}\\t/{ h; b updateColumns }" \
 	-e 'b skipHeader' \
@@ -754,7 +765,7 @@ delete()
     # a marker that a deletion was done.
     # On the last line, we check the hold space, and indicate unsuccessful
     # deletion via a special exit status.
-    sed -i \
+    sedWrapper -i \
 	"${IGNORE_HEADER_LINE_SED_ARGS[@]}" \
 	-e "/^${literalKeyPattern}\\t/{ h; d; }" \
 	-e ':skipHeader' \
@@ -766,7 +777,7 @@ delete()
 truncate()
 {
     if [ -s "$TABLE_FILESPEC" ]; then
-	sed -i "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e d -e ':skipHeader' -- "$TABLE_FILESPEC" || return 1
+	sedWrapper -i "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e d -e ':skipHeader' -- "$TABLE_FILESPEC" || return 1
     else
 	initializeTable
     fi
@@ -801,7 +812,7 @@ iterateOverRecords()
     while IFS=$'\t' read -r "$@" "${normalizedSchema[@]}"
     do
 	eval "$commandLine"
-    done < <(sed -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e p -e ':skipHeader' -- "$TABLE_FILESPEC")
+    done < <(sedWrapper -n "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e p -e ':skipHeader' -- "$TABLE_FILESPEC")
 }
 each()
 {
