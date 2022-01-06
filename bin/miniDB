@@ -692,15 +692,19 @@ updateFullRecord()
 	echo >&2 'ERROR: KEY must not be empty.'
 	exit 2
     fi
+
     local literalKeyPattern="$(printf %s "$key" | literalPattern)"
+    typeset -a sedOutputCommand=()
+    [ "$isOutput" ] && sedOutputCommand=(-e "/^${literalKeyPattern}\\t/w /dev/stdout")
 
     # If we find the key, duplicate its line into the hold space; this serves as
     # a marker that we don't need to append the line at the end.
     # On the last line, we check the hold space, and skip further processing of
     # the line if the hold space isn't empty.
-    sedWrapperHandlingQueriedColumns -i \
+    sedWrapperHandlingQueriedColumns "$isOutput" -i \
 	"${IGNORE_HEADER_LINE_SED_ARGS[@]}" \
 	-e "/^${literalKeyPattern}\\t/h" \
+	"${sedOutputCommand[@]}" \
 	-e "/^${literalKeyPattern}\\t/c\\
 ${line//\\/\\\\}"  \
 	-e ':skipHeader' \
@@ -718,6 +722,8 @@ updateSpecifiedColumns()
     fi
 
     local literalKeyPattern="$(printf %s "$key" | literalPattern)"
+    typeset -a sedOutputCommand=()
+    [ "$isOutput" ] && sedOutputCommand=(-e "/^${literalKeyPattern}\\t/w /dev/stdout")
 
     typeset -a sedUpdateColumnsArguments=()
     typeset -a sedProcedures=()
@@ -789,9 +795,11 @@ updateSpecifiedColumns()
     # a marker that we don't need to append the line at the end.
     # On the last line, we check the hold space, and skip further processing of
     # the line if the hold space isn't empty.
-    sedWrapperHandlingQueriedColumns -i \
+    sedWrapperHandlingQueriedColumns "$isOutput" -i \
 	"${IGNORE_HEADER_LINE_SED_ARGS[@]}" \
-	-e "/^${literalKeyPattern}\\t/{ h; b updateColumns }" \
+	-e "/^${literalKeyPattern}\\t/h" \
+	"${sedOutputCommand[@]}" \
+	-e "/^${literalKeyPattern}\\t/b updateColumns" \
 	-e 'b skipHeader' \
 	-e ':updateColumns' \
 	"${sedEnsureColumnsArguments[@]}" \
@@ -804,7 +812,14 @@ ${newRecord[*]//\\/\\\\}" \
 }
 sedWrapperHandlingQueriedColumns()
 {
-    sedWrapper "$@" -- "$TABLE_FILESPEC"
+    local isOutput="${1?}"; shift
+
+    if [ "$isOutput" ]; then
+	local line; line="$(sedWrapper "$@" -- "$TABLE_FILESPEC")" || return $?
+	[ -z "$line" ] || outputQueriedLine "$line"
+    else
+	sedWrapper "$@" -- "$TABLE_FILESPEC"
+    fi
 }
 
 delete()
