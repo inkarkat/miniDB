@@ -676,14 +676,17 @@ update()
     # Escape newlines and backslashes.
     [ "${line/[$'\n'\\]/}" = "$line" ] || line="$(escapeNewline "$line")"
 
+    local isOutput; [ ${#queriedColumns[@]} -gt 0 ] || [ "$isOmitKey" ] && isOutput=t
+
     if [ ${#updatedColumnValues[@]} -eq 0 ]; then
-	updateFullRecord
+	updateFullRecord "$isOutput"
     else
-	updateSpecifiedColumns
+	updateSpecifiedColumns "$isOutput"
     fi
 }
 updateFullRecord()
 {
+    local isOutput="${1?}"; shift
     local key="${line%%$'\t'*}"
     if [ ! "$key" ]; then
 	echo >&2 'ERROR: KEY must not be empty.'
@@ -703,8 +706,7 @@ ${line//\\/\\\\}"  \
 	-e ':skipHeader' \
 	-e '${ x; /./{ x; b; }; x; }' \
 	-e "\$a\\
-${line//\\/\\\\}" \
-	-- "$TABLE_FILESPEC" || return 1
+${line//\\/\\\\}" || return 1
 }
 updateSpecifiedColumns()
 {
@@ -798,12 +800,11 @@ updateSpecifiedColumns()
 	-e '${ x; /./{ x; b; }; x; }' \
 	-e "\$a\\
 ${newRecord[*]//\\/\\\\}" \
-	"${sedProcedures[@]}" \
-	-- "$TABLE_FILESPEC" || return 1
+	"${sedProcedures[@]}" || return 1
 }
 sedWrapperHandlingQueriedColumns()
 {
-    sedWrapper "$@"
+    sedWrapper "$@" -- "$TABLE_FILESPEC"
 }
 
 delete()
