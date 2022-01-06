@@ -593,7 +593,6 @@ parseColumns()
 
 query()
 {
-    local IFS=$'\t'
     [ -e "$TABLE_FILESPEC" ] || return 1
 
     # Escape newlines and backslashes.
@@ -610,6 +609,12 @@ query()
     fi
     [ "$line" ] || return 4
 
+    outputQueriedLine "$line"
+}
+outputQueriedLine()
+{
+    local line="${1:?}"; shift
+    local IFS=$'\t'
     local fullLine="$line"
     if [ "$isOmitKey" ]; then
 	line="${line#*$'\t'}"
