@@ -30,7 +30,7 @@ printShortUsage()
     printf 'Usage: %q %s\n' "$(basename "$1")" '... (--start-read-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--start-write-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--upgrade-to-write-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--end-transaction OWNER-ID|--abort-write-transaction OWNER-ID) [--timeout SECONDS] [--silence-transaction-errors]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [(-t|--transactional [--transaction-timeout TX-TIMEOUT]|--within-transaction|-T|--no-transaction) [--timeout SECONDS] [--silence-transaction-errors]] ...'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -u|--update RECORD'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -u|--update KEY -v|--column COL1=VALUE1|N=VALUE-N|COL1++|N++ [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -u|--update KEY -v|--column COL1=VALUE1|N=VALUE-N|COL1++|N++ [...] [-c|--columns 0*|*|#|COL1 [...]|N [...] [--as-escaped-lines|--as-shell-variables]]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -d|--delete KEY'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -C|--truncate'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -D|--drop'
@@ -105,13 +105,17 @@ HELPDESCRIPTION
     --fallback|-f FALLBACK-KEY
 				Lookup FALLBACK-KEY instead if KEY hasn't been
 				recorded.
-    --columns|-c		Instead of returning the entire record, just
-				return:
-				* non-key columns
+    --columns|-c		Instead of returning the entire record (--query)
+				or nothing (--update), return:
+				0*	    all columns (default for --query)
+				*	    non-key columns
+				#	    all updated columns (--update only)
 				COL1 [...] columns that match the passed schema
 					   (in the order given)
 				N [...]	   columns with the passed indices,
 					   starting with 0 for KEY, 1 for COL1
+				When updating, the values from before the update
+				are returned.
     --as-escaped-lines		Instead of returning the record in the original
 				format, return each column as a separate line.
 				Newlines and backslashes contained within a
