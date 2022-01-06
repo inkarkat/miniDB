@@ -76,13 +76,12 @@ load temp_database
     initialize_table "$BATS_TEST_NAME" from numbers
 
     miniDB --table "$BATS_TEST_NAME" --update 'medium' --column APPLES++ --column BANANAS++ --column ORANGES++
-    assert_table_row "$BATS_TEST_NAME" 5 "medium	34	50	10	good"
+    assert_table_row "$BATS_TEST_NAME" 5 "medium	34	50	100	good"
 }
 
 @test "increment large apples, bananas, and oranges" {
     initialize_table "$BATS_TEST_NAME" from numbers
 
     miniDB --table "$BATS_TEST_NAME" --update 'large' --column APPLES++ --column BANANAS++ --column ORANGES++
-    assert_table_row "$BATS_TEST_NAME" 6 "large	1000	4322	4000	will last"
+    assert_table_row "$BATS_TEST_NAME" 6 "large	4000	4322	99000	will last"
 }
-

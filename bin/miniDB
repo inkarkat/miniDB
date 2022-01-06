@@ -701,7 +701,7 @@ updateSpecifiedColumns()
 	    [ ${#sedProcedures[@]} -eq 0 ] && sedProcedures+=(-e b)
 	    sedUpdateColumnsArguments+=(
 		-e "s#^\\(${sedUpdatePattern}\\)"'\(9\+\)\($\|\t\)#\11\3\4#' -e "t rollover${c}"
-		-e "s#^\\(${sedUpdatePattern}\\)"'\([0-9]*\)8\(9*\)\($\|\t\)#\1\39\4\5#' -e "t rollover${c}"
+		-e "s#^\\(${sedUpdatePattern}\\)"'\([0-9]*\)8\(9*\)\($\|\t\)#\1\3_\4\5#' -e "t rollover${c}"	# Note: Cannot directly increment 8 to 9, as rollover${c} then won't know from where to turn 9s into 0s. Use an intermediate _ symbol instead.
 		-e "s#^\\(${sedUpdatePattern}\\)"'\([0-9]*\)7\(9*\)\($\|\t\)#\1\38\4\5#' -e "t rollover${c}"
 		-e "s#^\\(${sedUpdatePattern}\\)"'\([0-9]*\)6\(9*\)\($\|\t\)#\1\37\4\5#' -e "t rollover${c}"
 		-e "s#^\\(${sedUpdatePattern}\\)"'\([0-9]*\)5\(9*\)\($\|\t\)#\1\36\4\5#' -e "t rollover${c}"
@@ -714,7 +714,8 @@ updateSpecifiedColumns()
 	    )
 	    sedProcedures+=(
 		-e ":rollover${c}"
-		-e "s#^\\(${sedUpdatePattern}\\)"'\([0-8]\+\)9\(9*\)\($\|\t\)#\1\30\4\5#'
+		-e "s#^\\(${sedUpdatePattern}\\)"'\([0-9]*[0-8]\)9\(9*\)\($\|\t\)#\1\30\4\5#'
+		-e "s#^\\(${sedUpdatePattern}\\)"'\([0-9]*\)_9\(9*\)\($\|\t\)#\1\390\4\5#'  # Turn the intermediate _ symbol back into 9 while turning the first 9 into a 0.
 		-e "t rollover${c}"
 		-e "b return${c}"
 	    )
