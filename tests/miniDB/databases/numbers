@@ -1,0 +1,6 @@
+# KEY	APPLES	BANANAS	ORANGES	COMMENT
+0	0	0	0	nothing there
+empty				not even a zero
+small	1	9	2	minimal
+medium	33	49	99	good
+large	3999	4321	98999	will last

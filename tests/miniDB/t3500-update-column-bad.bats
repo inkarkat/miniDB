@@ -7,7 +7,7 @@ load temp_database
 
     run miniDB --table "$BATS_TEST_NAME" --update 'foo' --column 'whatIsThis'
     [ $status -eq 2 ]
-    [ "${lines[0]}" = 'ERROR: Column values must be specified as COL1=VALUE1 or N=VALUE-N.' ]
+    [ "${lines[0]}" = 'ERROR: Column values must be specified as COL1=VALUE1 or N=VALUE-N (or increment via COL1++ / N++).' ]
     [ "${lines[2]%% *}" = 'Usage:' ]
     assert_table_row "$BATS_TEST_NAME" \$ "foo	The Foo is here	42"
 }
@@ -17,7 +17,7 @@ load temp_database
 
     run miniDB --table "$BATS_TEST_NAME" --update 'foo' --column '=updated value'
     [ $status -eq 2 ]
-    [ "${lines[0]}" = 'ERROR: Column values must be specified as COL1=VALUE1 or N=VALUE-N.' ]
+    [ "${lines[0]}" = 'ERROR: Column values must be specified as COL1=VALUE1 or N=VALUE-N (or increment via COL1++ / N++).' ]
     [ "${lines[2]%% *}" = 'Usage:' ]
     assert_table_row "$BATS_TEST_NAME" \$ "foo	The Foo is here	42"
 }
