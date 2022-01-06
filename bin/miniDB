@@ -319,6 +319,7 @@ isSilenceTransactionErrors=
 isNeedEval=
 typeset -a commands=()
 readonly INCREMENT_VALUE=$'\t'	# Use the forbidden tab character as an indicator that the column should be incremented.
+hasIncrement=
 while [ $# -ne 0 ]
 do
     case "$1" in
@@ -375,6 +376,7 @@ do
 			if [[ "$1" =~ \+\+$ ]]; then
 			    column="${1%++}"
 			    updatedColumnValues["$column"]="$INCREMENT_VALUE"
+			    hasIncrement=t
 			else
 			    column="${1%%=*}"
 			    value="${1#*=}"
@@ -721,6 +723,15 @@ updateSpecifiedColumns()
 	    literalValue="${literalValue//\\/\\\\}"
 	    literalValue="${literalValue//&/\\&}"
 	    sedUpdateColumnsArguments+=(-e "s#^\\(${sedUpdatePattern}\\)${SED_ONE_COLUMN_PATTERN}#\\1${literalValue//#/\\#}#")
+	    if [ "$hasIncrement" ]; then
+		# Following increments would be lead down a wrong path (to
+		# rollover${c}) by the successful substitution; we need to clear
+		# the substitution flag via a no-op conditional jump.
+		sedUpdateColumnsArguments+=(
+		    -e "t return${c}"
+		    -e ":return${c}"
+		)
+	    fi
 	fi
 	[ $c -gt $highestIndex ] && highestIndex=$c
     done

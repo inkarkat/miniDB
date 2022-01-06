@@ -51,6 +51,20 @@ load temp_database
     assert_table_row "$BATS_TEST_NAME" 2 "zero	1	1	0	got small delivery"
 }
 
+@test "increment zero apples and bananas in different order" {
+    initialize_table "$BATS_TEST_NAME" from numbers
+
+    miniDB --table "$BATS_TEST_NAME" --update 'zero' --column BANANAS++ --column APPLES++
+    assert_table_row "$BATS_TEST_NAME" 2 "zero	1	1	0	nothing there"
+}
+
+@test "increment zero apples, bananas, and comment in different order" {
+    initialize_table "$BATS_TEST_NAME" from numbers
+
+    miniDB --table "$BATS_TEST_NAME" --update 'zero' --column BANANAS++ --column 'COMMENT=got small delivery' --column APPLES++
+    assert_table_row "$BATS_TEST_NAME" 2 "zero	1	1	0	got small delivery"
+}
+
 @test "increment small apples, bananas, and oranges" {
     initialize_table "$BATS_TEST_NAME" from numbers
 
