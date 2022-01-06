@@ -91,7 +91,9 @@ HELPDESCRIPTION
 				N++    columns with the passed indices,
 				starting with 0 for KEY, 1 for COL1
 				An empty / non-existing column will be treated
-				like 0 and incremented to 1.
+				like 0 and incremented to 1. Only supports
+				positive integers (of arbitrary size); any other
+				column value will be left untouched.
     --delete|-d KEY		Delete any existing record for KEY.
     --truncate|-C		Delete all existing records; just keep the
 				schema. Creates the table if it doesn't exist
