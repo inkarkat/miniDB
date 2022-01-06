@@ -700,6 +700,7 @@ updateSpecifiedColumns()
 	if [ "${updatedColumnValues[$c]}" = "$INCREMENT_VALUE" ]; then
 	    [ ${#sedProcedures[@]} -eq 0 ] && sedProcedures+=(-e b)
 	    sedUpdateColumnsArguments+=(
+		-e "s#^\\(${sedUpdatePattern}\\)"'\($\|\t\)#\11\3#' -e "t return${c}"
 		-e "s#^\\(${sedUpdatePattern}\\)"'\(9\+\)\($\|\t\)#\11\3\4#' -e "t rollover${c}"
 		-e "s#^\\(${sedUpdatePattern}\\)"'\([0-9]*\)8\(9*\)\($\|\t\)#\1\3_\4\5#' -e "t rollover${c}"	# Note: Cannot directly increment 8 to 9, as rollover${c} then won't know from where to turn 9s into 0s. Use an intermediate _ symbol instead.
 		-e "s#^\\(${sedUpdatePattern}\\)"'\([0-9]*\)7\(9*\)\($\|\t\)#\1\38\4\5#' -e "t rollover${c}"
