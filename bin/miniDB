@@ -310,6 +310,7 @@ preAction='ensureNotTransactional'
 action=
 postAction=
 typeset -a queriedColumns=()
+typeset -a updatedColumns=()
 typeset -A updatedColumnValues=()
 isOmitKey=
 outputFormat=
@@ -395,7 +396,7 @@ do
 			    fi >&2
 			    updatedColumnValues["$column"]="$(escapeNewline "$value")"
 			fi
-			queriedColumns+=("$column")
+			updatedColumns+=("$column")
 			shift
 			;;
 	--delete|-d)	shift; [ "$action" ] && multipleActionsError "$0"; action='delete'; key="$1"; shift
@@ -522,14 +523,33 @@ translateColumnNamesToIndices()
 		;;
 	    *)
 		index="${schemaToIndex["${queriedColumns[$i]}"]}"
-		if [ "$index" ]; then
-		    updatedColumnValues[$index]="${updatedColumnValues["${queriedColumns[$i]}"]}"
-		    unset updatedColumnValues["${queriedColumns[$i]}"]
+		if [ -n "$index" ]; then
 		    queriedColumns[$i]="$index"
 		elif [ ${#schema[@]} -eq 0 ]; then
 		    return 1
 		else
 		    printf >&2 'ERROR: Unknown column %s; not an index nor named in schema %s.\n' "${queriedColumns[$i]}" "${schema[*]}"
+		    exit 2
+		fi
+		;;
+	esac
+    done
+
+    for ((i = 0; i < ${#updatedColumns[@]}; i++))
+    do
+	case "${updatedColumns[$i]}" in
+	    +([0-9]))
+		;;
+	    *)
+		index="${schemaToIndex["${updatedColumns[$i]}"]}"
+		if [ -n "$index" ]; then
+		    updatedColumnValues[$index]="${updatedColumnValues["${updatedColumns[$i]}"]}"
+		    unset updatedColumnValues["${updatedColumns[$i]}"]
+		    updatedColumns[$i]="$index"
+		elif [ ${#schema[@]} -eq 0 ]; then
+		    return 1
+		else
+		    printf >&2 'ERROR: Unknown column %s; not an index nor named in schema %s.\n' "${updatedColumns[$i]}" "${schema[*]}"
 		    exit 2
 		fi
 		;;
@@ -691,7 +711,7 @@ updateSpecifiedColumns()
     typeset -a sedUpdateColumnsArguments=()
     typeset -a sedProcedures=()
     local highestIndex=0
-    for c in "${queriedColumns[@]}"
+    for c in "${updatedColumns[@]}"
     do
 	if [ $c -eq 0 -a -z "${updatedColumnValues[0]}" ]; then
 	    echo >&2 'ERROR: KEY must not be empty.'
@@ -918,7 +938,7 @@ readonly CONFIG_DIRSPEC="${baseDir}${namespace:+/}$namespace"
 readonly TABLE_FILESPEC="${CONFIG_DIRSPEC}/$table"
 readonly LOCK_FILESPEC="${CONFIG_DIRSPEC}/.${table}.lock"
 
-if [ ${#queriedColumns[@]} -gt 0 ]; then
+if [ ${#queriedColumns[@]} -gt 0 -o ${#updatedColumns[@]} -gt 0 ]; then
     if ! translateColumnNamesToIndices; then
 	if ! loadSchemaFromTable; then
 	    printf >&2 'ERROR: Cannot resolve named columns from the table %s, as no schema is defined there. Use indices or pass a --schema SCHEMA.\n' "${namespace}${namespace:+/}${table}"
