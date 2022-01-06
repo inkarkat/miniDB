@@ -743,7 +743,11 @@ updateSpecifiedColumns()
     typeset -a newRecord=()
     for ((i = 0; i <= highestIndex; i++))
     do
-	newRecord+=("${updatedColumnValues[$i]}")
+	if [ "${updatedColumnValues[$i]}" = "$INCREMENT_VALUE" ]; then
+	    newRecord+=("1")
+	else
+	    newRecord+=("${updatedColumnValues[$i]}")
+	fi
     done
     [ $highestIndex -eq 0 ] && newRecord+=('')	# Our database format requires a tab after the key.
 
