@@ -692,6 +692,10 @@ update()
     if [ ${#updatedColumnValues[@]} -eq 0 ]; then
 	updateFullRecord "$isOutput"
     else
+	if [ "$isOutputChangedColumns" ]; then
+	    queriedColumns=("${updatedColumns[@]}")
+	fi
+
 	updateSpecifiedColumns "$isOutput"
     fi
 }
