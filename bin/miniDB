@@ -318,6 +318,7 @@ typeset -a updatedColumns=()
 typeset -A updatedColumnValues=()
 isOmitKey=
 isOutputFullRecord=
+isOutputChangedColumns=
 outputFormat=
 typeset -a commandLines=()
 typeset -a beforeCommands=()
@@ -439,6 +440,8 @@ do
 			    isOmitKey=t
 			elif [ "$1" = '0*' ]; then
 			    isOutputFullRecord=t
+			elif [ "$1" = '#' ]; then
+			    isOutputChangedColumns=t
 			else
 			    queriedColumns=($1)
 			    if [ ${#queriedColumns[@]} -eq 0 ]; then
@@ -597,6 +600,11 @@ parseColumns()
 query()
 {
     [ -e "$TABLE_FILESPEC" ] || return 1
+
+    if [ "$isOutputChangedColumns" ]; then
+	echo >&2 'ERROR: Updated columns can only be queried in combination with --update.'
+	exit 2
+    fi
 
     # Escape newlines and backslashes.
     [ "${key/[$'\n'\\]/}" = "$key" ] || key="$(escapeNewline "$key")"
