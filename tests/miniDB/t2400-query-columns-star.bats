@@ -8,7 +8,7 @@ load canned_databases
     [ "$output" = 'The /Foo\ is here	42	with backslash' ]
 }
 
-@test "existing multiline key can be queried omitting the key" {
+@test "existing multiline record can be queried omitting the key" {
     run miniDB --table multiline-schema --query bar --columns \*
     [ $status -eq 0 ]
     [ "$output" = 'A man

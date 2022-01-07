@@ -29,8 +29,8 @@ printShortUsage()
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--basedir DIR|--base-type config|data|runtime|cache|temp] [-s|--schema "KEY COL1 [COL2 ...]"] [-n|--namespace NAMESPACE] -t|--table TABLE [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... (--start-read-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--start-write-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--upgrade-to-write-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--end-transaction OWNER-ID|--abort-write-transaction OWNER-ID) [--timeout SECONDS] [--silence-transaction-errors]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [(-t|--transactional [--transaction-timeout TX-TIMEOUT]|--within-transaction|-T|--no-transaction) [--timeout SECONDS] [--silence-transaction-errors]] ...'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -u|--update RECORD'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -u|--update KEY -v|--column COL1=VALUE1|N=VALUE-N|COL1++|N++ [...]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -u|--update RECORD [-c|--columns 0*|*|#|COL1 [...]|N [...] [--as-escaped-lines|--as-shell-variables]]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -u|--update KEY -v|--column COL1=VALUE1|N=VALUE-N|COL1++|N++ [-v|--column ...] [-c|--columns 0*|*|#|COL1 [...]|N [...] [--as-escaped-lines|--as-shell-variables]]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -d|--delete KEY'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -C|--truncate'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -D|--drop'
@@ -105,13 +105,17 @@ HELPDESCRIPTION
     --fallback|-f FALLBACK-KEY
 				Lookup FALLBACK-KEY instead if KEY hasn't been
 				recorded.
-    --columns|-c		Instead of returning the entire record, just
-				return:
-				* non-key columns
+    --columns|-c		Instead of returning the entire record (--query)
+				or nothing (--update), return:
+				0*	    all columns (default for --query)
+				*	    non-key columns
+				#	    all updated columns (--update only)
 				COL1 [...] columns that match the passed schema
 					   (in the order given)
 				N [...]	   columns with the passed indices,
 					   starting with 0 for KEY, 1 for COL1
+				When updating, the values from before the update
+				are returned.
     --as-escaped-lines		Instead of returning the record in the original
 				format, return each column as a separate line.
 				Newlines and backslashes contained within a
@@ -310,8 +314,11 @@ preAction='ensureNotTransactional'
 action=
 postAction=
 typeset -a queriedColumns=()
+typeset -a updatedColumns=()
 typeset -A updatedColumnValues=()
 isOmitKey=
+isOutputFullRecord=
+isOutputChangedColumns=
 outputFormat=
 typeset -a commandLines=()
 typeset -a beforeCommands=()
@@ -395,7 +402,7 @@ do
 			    fi >&2
 			    updatedColumnValues["$column"]="$(escapeNewline "$value")"
 			fi
-			queriedColumns+=("$column")
+			updatedColumns+=("$column")
 			shift
 			;;
 	--delete|-d)	shift; [ "$action" ] && multipleActionsError "$0"; action='delete'; key="$1"; shift
@@ -431,6 +438,10 @@ do
 	--columns|-c)	shift
 			if [ "$1" = '*' ]; then
 			    isOmitKey=t
+			elif [ "$1" = '0*' ]; then
+			    isOutputFullRecord=t
+			elif [ "$1" = '#' ]; then
+			    isOutputChangedColumns=t
 			else
 			    queriedColumns=($1)
 			    if [ ${#queriedColumns[@]} -eq 0 ]; then
@@ -522,14 +533,33 @@ translateColumnNamesToIndices()
 		;;
 	    *)
 		index="${schemaToIndex["${queriedColumns[$i]}"]}"
-		if [ "$index" ]; then
-		    updatedColumnValues[$index]="${updatedColumnValues["${queriedColumns[$i]}"]}"
-		    unset updatedColumnValues["${queriedColumns[$i]}"]
+		if [ -n "$index" ]; then
 		    queriedColumns[$i]="$index"
 		elif [ ${#schema[@]} -eq 0 ]; then
 		    return 1
 		else
 		    printf >&2 'ERROR: Unknown column %s; not an index nor named in schema %s.\n' "${queriedColumns[$i]}" "${schema[*]}"
+		    exit 2
+		fi
+		;;
+	esac
+    done
+
+    for ((i = 0; i < ${#updatedColumns[@]}; i++))
+    do
+	case "${updatedColumns[$i]}" in
+	    +([0-9]))
+		;;
+	    *)
+		index="${schemaToIndex["${updatedColumns[$i]}"]}"
+		if [ -n "$index" ]; then
+		    updatedColumnValues[$index]="${updatedColumnValues["${updatedColumns[$i]}"]}"
+		    unset updatedColumnValues["${updatedColumns[$i]}"]
+		    updatedColumns[$i]="$index"
+		elif [ ${#schema[@]} -eq 0 ]; then
+		    return 1
+		else
+		    printf >&2 'ERROR: Unknown column %s; not an index nor named in schema %s.\n' "${updatedColumns[$i]}" "${schema[*]}"
 		    exit 2
 		fi
 		;;
@@ -569,8 +599,12 @@ parseColumns()
 
 query()
 {
-    local IFS=$'\t'
     [ -e "$TABLE_FILESPEC" ] || return 1
+
+    if [ "$isOutputChangedColumns" ]; then
+	echo >&2 'ERROR: Updated columns can only be queried in combination with --update.'
+	exit 2
+    fi
 
     # Escape newlines and backslashes.
     [ "${key/[$'\n'\\]/}" = "$key" ] || key="$(escapeNewline "$key")"
@@ -586,6 +620,12 @@ query()
     fi
     [ "$line" ] || return 4
 
+    outputQueriedLine "$line"
+}
+outputQueriedLine()
+{
+    local line="${1:?}"; shift
+    local IFS=$'\t'
     local fullLine="$line"
     if [ "$isOmitKey" ]; then
 	line="${line#*$'\t'}"
@@ -647,35 +687,45 @@ update()
     # Escape newlines and backslashes.
     [ "${line/[$'\n'\\]/}" = "$line" ] || line="$(escapeNewline "$line")"
 
+    local isOutput; [ ${#queriedColumns[@]} -gt 0 ] || [ "$isOmitKey" ] || [ "$isOutputFullRecord" ] || [ "$isOutputChangedColumns" ] && isOutput=t
+
     if [ ${#updatedColumnValues[@]} -eq 0 ]; then
-	updateFullRecord
+	updateFullRecord "$isOutput"
     else
-	updateSpecifiedColumns
+	if [ "$isOutputChangedColumns" ]; then
+	    queriedColumns=("${updatedColumns[@]}")
+	fi
+
+	updateSpecifiedColumns "$isOutput"
     fi
 }
 updateFullRecord()
 {
+    local isOutput="${1?}"; shift
     local key="${line%%$'\t'*}"
     if [ ! "$key" ]; then
 	echo >&2 'ERROR: KEY must not be empty.'
 	exit 2
     fi
+
     local literalKeyPattern="$(printf %s "$key" | literalPattern)"
+    typeset -a sedOutputCommand=()
+    [ "$isOutput" ] && sedOutputCommand=(-e "/^${literalKeyPattern}\\t/w /dev/stdout")
 
     # If we find the key, duplicate its line into the hold space; this serves as
     # a marker that we don't need to append the line at the end.
     # On the last line, we check the hold space, and skip further processing of
     # the line if the hold space isn't empty.
-    sedWrapper -i \
+    sedWrapperHandlingQueriedColumns "$isOutput" -i \
 	"${IGNORE_HEADER_LINE_SED_ARGS[@]}" \
 	-e "/^${literalKeyPattern}\\t/h" \
+	"${sedOutputCommand[@]}" \
 	-e "/^${literalKeyPattern}\\t/c\\
 ${line//\\/\\\\}"  \
 	-e ':skipHeader' \
 	-e '${ x; /./{ x; b; }; x; }' \
 	-e "\$a\\
-${line//\\/\\\\}" \
-	-- "$TABLE_FILESPEC" || return 1
+${line//\\/\\\\}" || return 1
 }
 updateSpecifiedColumns()
 {
@@ -687,11 +737,13 @@ updateSpecifiedColumns()
     fi
 
     local literalKeyPattern="$(printf %s "$key" | literalPattern)"
+    typeset -a sedOutputCommand=()
+    [ "$isOutput" ] && sedOutputCommand=(-e "/^${literalKeyPattern}\\t/w /dev/stdout")
 
     typeset -a sedUpdateColumnsArguments=()
     typeset -a sedProcedures=()
     local highestIndex=0
-    for c in "${queriedColumns[@]}"
+    for c in "${updatedColumns[@]}"
     do
 	if [ $c -eq 0 -a -z "${updatedColumnValues[0]}" ]; then
 	    echo >&2 'ERROR: KEY must not be empty.'
@@ -758,9 +810,11 @@ updateSpecifiedColumns()
     # a marker that we don't need to append the line at the end.
     # On the last line, we check the hold space, and skip further processing of
     # the line if the hold space isn't empty.
-    sedWrapper -i \
+    sedWrapperHandlingQueriedColumns "$isOutput" -i \
 	"${IGNORE_HEADER_LINE_SED_ARGS[@]}" \
-	-e "/^${literalKeyPattern}\\t/{ h; b updateColumns }" \
+	-e "/^${literalKeyPattern}\\t/h" \
+	"${sedOutputCommand[@]}" \
+	-e "/^${literalKeyPattern}\\t/b updateColumns" \
 	-e 'b skipHeader' \
 	-e ':updateColumns' \
 	"${sedEnsureColumnsArguments[@]}" \
@@ -769,8 +823,18 @@ updateSpecifiedColumns()
 	-e '${ x; /./{ x; b; }; x; }' \
 	-e "\$a\\
 ${newRecord[*]//\\/\\\\}" \
-	"${sedProcedures[@]}" \
-	-- "$TABLE_FILESPEC" || return 1
+	"${sedProcedures[@]}" || return 1
+}
+sedWrapperHandlingQueriedColumns()
+{
+    local isOutput="${1?}"; shift
+
+    if [ "$isOutput" ]; then
+	local line; line="$(sedWrapper "$@" -- "$TABLE_FILESPEC")" || return $?
+	[ -z "$line" ] || outputQueriedLine "$line"
+    else
+	sedWrapper "$@" -- "$TABLE_FILESPEC"
+    fi
 }
 
 delete()
@@ -918,7 +982,7 @@ readonly CONFIG_DIRSPEC="${baseDir}${namespace:+/}$namespace"
 readonly TABLE_FILESPEC="${CONFIG_DIRSPEC}/$table"
 readonly LOCK_FILESPEC="${CONFIG_DIRSPEC}/.${table}.lock"
 
-if [ ${#queriedColumns[@]} -gt 0 ]; then
+if [ ${#queriedColumns[@]} -gt 0 -o ${#updatedColumns[@]} -gt 0 ]; then
     if ! translateColumnNamesToIndices; then
 	if ! loadSchemaFromTable; then
 	    printf >&2 'ERROR: Cannot resolve named columns from the table %s, as no schema is defined there. Use indices or pass a --schema SCHEMA.\n' "${namespace}${namespace:+/}${table}"
