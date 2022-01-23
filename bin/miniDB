@@ -29,16 +29,16 @@ printShortUsage()
     printf 'Usage: %q %s\n' "$(basename "$1")" '[--basedir DIR|--base-type config|data|runtime|cache|temp] [-s|--schema "KEY COL1 [COL2 ...]"] [-n|--namespace NAMESPACE] -t|--table TABLE [-?|-h|--help]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... (--start-read-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--start-write-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--upgrade-to-write-transaction OWNER-ID [--transaction-timeout TX-TIMEOUT]|--end-transaction OWNER-ID|--abort-write-transaction OWNER-ID) [--timeout SECONDS] [--silence-transaction-errors]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... [(-t|--transactional [--transaction-timeout TX-TIMEOUT]|--within-transaction|-T|--no-transaction) [--timeout SECONDS] [--silence-transaction-errors]] ...'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -u|--update RECORD [-c|--columns 0*|*|#|COL1 [...]|N [...] [--as-escaped-lines|--as-shell-variables]]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -u|--update KEY -v|--column COL1=VALUE1|N=VALUE-N|COL1++|N++ [-v|--column ...] [-c|--columns 0*|*|#|COL1 [...]|N [...] [--as-escaped-lines|--as-shell-variables]]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -u|--update RECORD [-c|--columns 0*|*|#|"COL1 [...]"|"N [...]" [--as-escaped-lines|--as-shell-variables]]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -u|--update KEY -v|--column COL1=VALUE1|N=VALUE-N|COL1++|N++ [-v|--column ...] [-c|--columns 0*|*|#|"COL1 [...]"|"N [...]" [--as-escaped-lines|--as-shell-variables]]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -d|--delete KEY'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -C|--truncate'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -D|--drop'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... --read-command "COMMANDLINE" [...]|--command "COMMANDLINE" [...] [--] SIMPLECOMMAND [...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -e|--each "COMMANDLINE" [-e|--each ...] [--before "COMMANDLINE" [--before ...]] [--after "COMMANDLINE" [--after ...]]'
-    printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -q|--query KEY [-f|--fallback FALLBACK-KEY] [-c|--columns *|COL1 [...]|N [...]] [--as-escaped-lines|--as-shell-variables]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -q|--query KEY [-f|--fallback FALLBACK-KEY] [-c|--columns *|"COL1 [...]"|"N [...]"] [--as-escaped-lines|--as-shell-variables]'
     printf 'Usage: %q -x|--unescape "$(%q %s)"\n' "$(basename "$1")" "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-escaped-lines'
-    printf 'Usage: eval "$(%q %s)"\n' "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-shell-variables'
+    printf 'Usage: eval "$(%q %s)"\n' "$(basename "$1")" '-q|--query KEY -c|--columns "COL1 [...]"|"N [...]" --as-shell-variables'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -k|--query-keys'
     printf 'Usage: %q %s | %q -x|--unescape [-]\n' "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-escaped-lines' "$(basename "$1")"
     printf 'Usage: [DEBUG=%q:sed[!]] %q ...	DEBUG=%q:sed also prints it, DEBUG=%q:sed! just prints and skips execution\n' "$(basename "$1")" "$(basename "$1")" "$(basename "$1")" "$(basename "$1")"
@@ -105,15 +105,16 @@ HELPDESCRIPTION
     --fallback|-f FALLBACK-KEY
 				Lookup FALLBACK-KEY instead if KEY hasn't been
 				recorded.
-    --columns|-c		Instead of returning the entire record (--query)
+    --columns|-c 0*|*|#|"COL1 [...]"|"N [...]"
+				Instead of returning the entire record (--query)
 				or nothing (--update), return:
 				0*	    all columns (default for --query)
 				*	    non-key columns
 				#	    all updated columns (--update only)
-				COL1 [...] columns that match the passed schema
-					   (in the order given)
-				N [...]	   columns with the passed indices,
-					   starting with 0 for KEY, 1 for COL1
+				"COL1 [...]"columns that match the passed schema
+					   (in the order given, as one argument)
+				"N [...]"   columns with the passed indices,
+					    starting with 0 for KEY, 1 for COL1
 				When updating, the values from before the update
 				are returned.
     --as-escaped-lines		Instead of returning the record in the original
