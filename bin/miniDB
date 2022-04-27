@@ -793,7 +793,7 @@ updateSpecifiedColumns()
 	[ $c -gt $highestIndex ] && highestIndex=$c
     done
     typeset -a sedEnsureColumnsArguments=()
-    [ $highestIndex -ge 2 ] && sedEnsureColumnsArguments=(-e "/${SED_PRECEDING_COLUMN_PATTERN}\\{${highestIndex}\\}/!{ s/\$/\\t/; b updateColumns }")
+    [ $highestIndex -ge 2 ] && sedEnsureColumnsArguments=(-e "/${SED_PRECEDING_COLUMN_PATTERN}\\{${highestIndex}\\}"'/!{ s/$/\t/; b updateColumns }')
 
     [ -z "${updatedColumnValues[0]}" ] && updatedColumnValues[0]="$key"	# Include the key (unless it is part of the updated columns).
     typeset -a newRecord=()
