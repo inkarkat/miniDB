@@ -326,7 +326,6 @@ typeset -a beforeCommands=()
 typeset -a afterCommands=()
 typeset -a lockControllerArgs=()
 isSilenceTransactionErrors=
-isNeedEval=
 typeset -a commands=()
 readonly INCREMENT_VALUE=$'\t'	# Use the forbidden tab character as an indicator that the column should be incremented.
 hasIncrement=
@@ -468,8 +467,8 @@ do
 			shift
 			table='dummy'	# Need to set this as it's mandatory for all other actions, but not used for unescape.
 			;;
-	--read-command)	shift; [ "$action" ] && [ "$action" != 'commandline' ] && multipleActionsError "$0"; [ "$action" ]|| needReadLock=t; action='commandline'; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
-	--command)	shift; [ "$action" ] && [ "$action" != 'commandline' ] && multipleActionsError "$0"; needReadLock=; action='commandline'; commands+=(${commands:+;} "$1"); isNeedEval=t; shift;;
+	--read-command)	shift; [ "$action" ] && [ "$action" != 'commandline' ] && multipleActionsError "$0"; [ "$action" ]|| needReadLock=t; action='commandline'; commands+=(${commands:+;} "$1"); shift;;
+	--command)	shift; [ "$action" ] && [ "$action" != 'commandline' ] && multipleActionsError "$0"; needReadLock=; action='commandline'; commands+=(${commands:+;} "$1"); shift;;
 	--each|-e)	shift; [ "$action" -a "$action" != 'each' ] && multipleActionsError "$0"; action='each'; needReadLock=t; commandLines+=("$1"); shift;;
 	--before)	shift; beforeCommands+=(${beforeCommands:+;} "$1"); shift;;
 	--after)	shift; afterCommands+=(${afterCommands:+;} "$1"); shift;;
@@ -483,15 +482,11 @@ if [ $# -ne 0 ]; then
     action='commandline'
     needReadLock=
 
-    if [ "$isNeedEval" ]; then
-	# Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
-	# undo the effects of eval.
-	printf -v quotedSimpleCommand '%q ' "$@"
-	printf -v escapedFileMarker %q "$fileMarker"
-	commands+=(${commands:+;} "${quotedSimpleCommand//"$escapedFileMarker"/$fileMarker}")	# %q escapes {}, we don't want that to have it interpolated later.
-    else
-	commands=("$@")
-    fi
+    # Combine --command and SIMPLECOMMAND; need to quote SIMPLECOMMAND to
+    # undo the effects of eval.
+    printf -v quotedSimpleCommand '%q ' "$@"
+    printf -v escapedFileMarker %q "$fileMarker"
+    commands+=(${commands:+;} "${quotedSimpleCommand//"$escapedFileMarker"/$fileMarker}")	# %q escapes {}, we don't want that to have it interpolated later.
 fi
 if [ ! "$action" ]; then
     echo "ERROR: No action passed: $ACTIONS"
@@ -881,11 +876,7 @@ removeLock()
 commandline()
 {
     typeset -a interpolatedCommands=("${commands[@]//"$fileMarker"/$TABLE_FILESPEC}")
-    if [ "$isNeedEval" ]; then
-	eval "${interpolatedCommands[@]}"
-    else
-	"${interpolatedCommands[@]}"
-    fi
+    eval "${interpolatedCommands[@]}"
 }
 
 iterateOverRecords()
