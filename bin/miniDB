@@ -18,6 +18,7 @@
 set -o noglob
 shopt -qs extglob
 
+: ${MINIDB_COMMAND_JOINER=;}
 : ${MINIDB_FILE_MARKER='{}'}
 fileMarker="$MINIDB_FILE_MARKER"; unset MINIDB_FILE_MARKER
 baseDir="${XDG_DATA_HOME:-$HOME/.local/share}"
@@ -322,11 +323,11 @@ isOutputFullRecord=
 isOutputChangedColumns=
 outputFormat=
 typeset -a commandLines=()
-typeset -a beforeCommands=()
-typeset -a afterCommands=()
+beforeCommands=
+afterCommands=
 typeset -a lockControllerArgs=()
 isSilenceTransactionErrors=
-typeset -a commands=()
+commands=
 readonly INCREMENT_VALUE=$'\t'	# Use the forbidden tab character as an indicator that the column should be incremented.
 hasIncrement=
 while [ $# -ne 0 ]
@@ -467,11 +468,11 @@ do
 			shift
 			table='dummy'	# Need to set this as it's mandatory for all other actions, but not used for unescape.
 			;;
-	--read-command)	shift; [ "$action" ] && [ "$action" != 'commandline' ] && multipleActionsError "$0"; [ "$action" ]|| needReadLock=t; action='commandline'; commands+=(${commands:+;} "$1"); shift;;
-	--command)	shift; [ "$action" ] && [ "$action" != 'commandline' ] && multipleActionsError "$0"; needReadLock=; action='commandline'; commands+=(${commands:+;} "$1"); shift;;
+	--read-command)	shift; [ "$action" ] && [ "$action" != 'commandline' ] && multipleActionsError "$0"; [ "$action" ]|| needReadLock=t; action='commandline'; commands+="${commands:+ $MINIDB_COMMAND_JOINER }$1"; shift;;
+	--command)	shift; [ "$action" ] && [ "$action" != 'commandline' ] && multipleActionsError "$0"; needReadLock=; action='commandline'; commands+="${commands:+ $MINIDB_COMMAND_JOINER }$1"; shift;;
 	--each|-e)	shift; [ "$action" -a "$action" != 'each' ] && multipleActionsError "$0"; action='each'; needReadLock=t; commandLines+=("$1"); shift;;
-	--before)	shift; beforeCommands+=(${beforeCommands:+;} "$1"); shift;;
-	--after)	shift; afterCommands+=(${afterCommands:+;} "$1"); shift;;
+	--before)	shift; beforeCommands+="${beforeCommands:+ $MINIDB_COMMAND_JOINER }$1"; shift;;
+	--after)	shift; afterCommands+="${afterCommands:+ $MINIDB_COMMAND_JOINER }$1"; shift;;
 	--)		shift; break;;
 	-*)		{ echo "ERROR: Unknown option \"$1\"!"; echo; printUsage "$0"; } >&2; exit 2;;
 	*)		break;;
@@ -486,7 +487,7 @@ if [ $# -ne 0 ]; then
     # undo the effects of eval.
     printf -v quotedSimpleCommand '%q ' "$@"
     printf -v escapedFileMarker %q "$fileMarker"
-    commands+=(${commands:+;} "${quotedSimpleCommand//"$escapedFileMarker"/$fileMarker}")	# %q escapes {}, we don't want that to have it interpolated later.
+    commands+="${commands:+ $MINIDB_COMMAND_JOINER }${quotedSimpleCommand//"$escapedFileMarker"/$fileMarker}"	# %q escapes {}, we don't want that to have it interpolated later.
 fi
 if [ ! "$action" ]; then
     echo "ERROR: No action passed: $ACTIONS"
@@ -875,8 +876,8 @@ removeLock()
 
 commandline()
 {
-    typeset -a interpolatedCommands=("${commands[@]//"$fileMarker"/$TABLE_FILESPEC}")
-    eval "${interpolatedCommands[@]}"
+    local interpolatedCommands="${commands//"$fileMarker"/$TABLE_FILESPEC}"
+    eval "$interpolatedCommands"
 }
 
 iterateOverRecords()
@@ -900,12 +901,12 @@ each()
 	fi
     fi
 
-    eval "${beforeCommands[@]}"
+    eval "$beforeCommands"
 	for cl in "${commandLines[@]}"
 	do
 	    iterateOverRecords "$cl" "${iterateReadArgs[@]}"
 	done
-    eval "${afterCommands[@]}"
+    eval "$afterCommands"
 }
 queryKeys()
 {
