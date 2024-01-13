@@ -38,10 +38,10 @@ printShortUsage()
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... --read-command "COMMANDLINE" [...]|--command "COMMANDLINE" [...] [--] SIMPLECOMMAND [...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -e|--each "COMMANDLINE" [-e|--each ...] [--before "COMMANDLINE" [--before ...]] [--after "COMMANDLINE" [--after ...]]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -q|--query KEY [-f|--fallback FALLBACK-KEY] [-c|--columns *|"COL1 [...]"|"N [...]"] [--as-escaped-lines|--as-shell-variables]'
-    printf 'Usage: %q -x|--unescape "$(%q %s)"\n' "$(basename "$1")" "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-escaped-lines'
+    printf 'Usage: %q -E|--unescape "$(%q %s)"\n' "$(basename "$1")" "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-escaped-lines'
     printf 'Usage: eval "$(%q %s)"\n' "$(basename "$1")" '-q|--query KEY -c|--columns "COL1 [...]"|"N [...]" --as-shell-variables'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -k|--query-keys'
-    printf 'Usage: %q %s | %q -x|--unescape [-]\n' "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-escaped-lines' "$(basename "$1")"
+    printf 'Usage: %q %s | %q -E|--unescape [-]\n' "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-escaped-lines' "$(basename "$1")"
     printf 'Usage: [DEBUG=%q:sed[!]] %q ...	DEBUG=%q:sed also prints it, DEBUG=%q:sed! just prints and skips execution\n' "$(basename "$1")" "$(basename "$1")" "$(basename "$1")" "$(basename "$1")"
 }
 printUsage()
@@ -130,7 +130,7 @@ HELPDESCRIPTION
 				... if no schema is passed nor defined on the
 				table). The output is expected to be eval'd to
 				define the variables.
-    --unescape|-x OUTPUT|[-]	Interpret escaped backslashes and newlines from
+    --unescape|-E OUTPUT|[-]	Interpret escaped backslashes and newlines from
 				a query with --as-escaped-lines into the
 				original text (of a single column; you could
 				pass multiple columns, but then the column
@@ -458,7 +458,7 @@ do
 			shift; outputFormat='escapedLines';;
 	--as-shell-variables)
 			shift; outputFormat='shellVariables';;
-	--unescape|-x)	shift; [ "$action" ] && multipleActionsError "$0"; action='unescape'
+	--unescape|-E)	shift; [ "$action" ] && multipleActionsError "$0"; action='unescape'
 
 			if [ $# -eq 0 -o "$1" = '-' ]; then
 			    line="$(< /dev/stdin)"
