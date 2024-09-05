@@ -35,6 +35,7 @@ printShortUsage()
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -d|--delete KEY'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -C|--truncate'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -D|--drop'
+    printf 'Usage: viewName=$(%q %s) && %q --view $viewName %s ...; %q --remove-view $viewName\n' "$(basename "$1")" '... --create-view' "$(basename "$1")" '--read-command|--each|--query|--query-keys' "$(basename "$1")"
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... --read-command "COMMANDLINE" [...]|--command "COMMANDLINE" [...] [--] SIMPLECOMMAND [...]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -e|--each "COMMANDLINE" [-e|--each ...] [--before "COMMANDLINE" [--before ...]] [--after "COMMANDLINE" [--after ...]]'
     printf 'Usage: %q %s\n' "$(basename "$1")" '    ... -q|--query KEY [-f|--fallback FALLBACK-KEY] [-c|--columns *|"COL1 [...]"|"N [...]"] [--as-escaped-lines|--as-shell-variables]'
@@ -74,6 +75,9 @@ HELPDESCRIPTION
 				use. Determines the table directory.
     --table|-t TABLE		Category in the context of the application.
 				Determines the table file.
+    --view VIEW-NAME		Perform read-only actions on the view that was
+				previously created through --create-view instead
+				of acting on TABLE directly.
     --update|-u RECORD		Record RECORD, which must consist of a KEY + tab
 				+ optional additional columns. An existing
 				record with the same KEY is overwritten, else it
@@ -99,8 +103,15 @@ HELPDESCRIPTION
     --truncate|-C		Delete all existing records; just keep the
 				schema. Creates the table if it doesn't exist
 				yet.
-    --drop|-D			Completely wipe all records and the table file
-				itself.
+    --drop|-D			Completely wipe all records and the table (or
+				view) file itself.
+    --create-view		Create a read-only copy of the current table.
+				(This is an efficient, copy-on-write operation.)
+				This returns a VIEW-NAME that needs to be passed
+				(along the TABLE) to any subsequent command via
+				--view VIEW-NAME.
+				After use, the view should be discarded via
+				--drop.
     --query|-q KEY		Query whether a record for KEY exists and return
 				it.
     --fallback|-f FALLBACK-KEY
@@ -140,6 +151,10 @@ HELPDESCRIPTION
 				within a transaction)${fileMarker:+; $fileMarker is replaced with its
 				filespec}.
 				No check is done whether TABLE already exists.
+				If you're using views, make sure to overwrite
+				the file (e.g. via sed -i), not just append to
+				it, in order to maintain the copy-on-write
+				semantics.
     --read-command "COMMANDLINE"
 				Same, but only acquire a read lock; the commands
 				must not modify the TABLE.
@@ -309,6 +324,7 @@ typeset -a schema=()
 typeset -a normalizedSchema=()
 namespace=
 table=
+view=
 line=
 key=
 fallbackKey=
@@ -378,6 +394,14 @@ do
 			    exit 2
 			fi >&2
 			;;
+	--view)		shift; view="${1:?}"; shift
+			if [[ "$view" = */* ]]; then
+			    echo 'ERROR: VIEW must not contain slashes.'
+			    echo
+			    printUsage "$0"
+			    exit 2
+			fi >&2
+			;;
 	--fallback|-f)	shift; fallbackKey="$1"; shift;;
 	--update|-u)	shift; [ "$action" ] && multipleActionsError "$0"; action='update'; line="$1"; shift
 			containsTab "$line" || line+=$'\t'   # Need at least one tab separator.
@@ -421,6 +445,7 @@ do
 			;;
 	--truncate|-C)	shift; [ "$action" ] && multipleActionsError "$0"; action='truncate';;
 	--drop|-D)	shift; [ "$action" ] && multipleActionsError "$0"; action='drop'; postPostAction='removeLock';;
+	--create-view)	shift; [ "$action" ] && multipleActionsError "$0"; action='createView'; needReadLock=t;;
 	--query|-q)	shift; [ "$action" ] && multipleActionsError "$0"; action='query'; key="$1"; needReadLock=t; shift
 			if containsTab "$key"; then
 			    echo 'ERROR: KEY cannot contain tab characters.'
@@ -678,6 +703,7 @@ initializeTable()
 }
 update()
 {
+    writeableCheck || return $?
     # Need to write at least one line so that sed does processing; can use that for a descriptive header.
     [ -s "$TABLE_FILESPEC" ] || initializeTable || return 1
 
@@ -836,6 +862,7 @@ sedWrapperHandlingQueriedColumns()
 
 delete()
 {
+    writeableCheck || return $?
     local IFS=$'\t'
     [ -e "$TABLE_FILESPEC" ] || return 1
 
@@ -856,6 +883,7 @@ delete()
 
 truncate()
 {
+    writeableCheck || return $?
     if [ -s "$TABLE_FILESPEC" ]; then
 	sedWrapper -i "${IGNORE_HEADER_LINE_SED_ARGS[@]}" -e d -e ':skipHeader' -- "$TABLE_FILESPEC" || return 1
     else
@@ -869,13 +897,42 @@ drop()
     rm -- "$TABLE_FILESPEC"
 }
 
+createView()
+{
+    local viewFilespec="$(mktemp --tmpdir="${CONFIG_DIRSPEC:?}" ".${table:?}.XXXXXX" 2>/dev/null || echo "${CONFIG_DIRSPEC:?}/.${table:?}.$$${RANDOM}")"
+    cp --link --force "$TABLE_FILESPEC" "$viewFilespec" || return 1
+    printf '%s\n' "${viewFilespec#${CONFIG_DIRSPEC}/.${table}.}"
+}
+
+removeView()
+{
+    local viewFilespec="${CONFIG_DIRSPEC:?}/.${table:?}.${view:?}"
+    [ -e "$viewFilespec" ] || return 99
+    rm --force -- "$viewFilespec"
+}
+
+writeableCheck()
+{
+    [ -z "$view" ] && return 0
+    echo >&2 'ERROR: Only read-only actions are allowed in views.'
+    return 2
+}
+noViewCheck()
+{
+    [ -z "$view" ] && return 0
+    echo >&2 'ERROR: Cannot use transactions in views; they are read-only, anyway.'
+    return 2
+}
+
 removeLock()
 {
+    [ -z "$LOCK_FILESPEC" ] && [ -n "$view" ] && return 0
     rm --force -- "$LOCK_FILESPEC" 2>/dev/null
 }
 
 commandline()
 {
+    [ "$needReadLock" ] || writeableCheck || return $?
     local interpolatedCommands="${commands//"$fileMarker"/$TABLE_FILESPEC}"
     eval "$interpolatedCommands"
 }
@@ -931,6 +988,7 @@ lockedCall()
 }
 startTransaction()
 {
+    noViewCheck || return $?
     SECONDS=0
     local error
     while :
@@ -948,10 +1006,12 @@ startTransaction()
 }
 upgradeTransaction()
 {
+    noViewCheck || return $?
     lockedCall TX-UPGRADE
 }
 endTransaction()
 {
+    noViewCheck || return $?
     lockedCall TX-END && \
 	if [ ! -e "$TABLE_FILESPEC" ]; then
 	    removeLock
@@ -959,10 +1019,12 @@ endTransaction()
 }
 abortWriteTransaction()
 {
+    noViewCheck || return $?
     lockedCall TX-ABORT
 }
 checkTransaction()
 {
+    noViewCheck || return $?
     lockedCall TX-CHECK --shared
 }
 
@@ -972,8 +1034,12 @@ typeset -a IGNORE_HEADER_LINE_SED_ARGS=(-e '1{ /^#/b skipHeader }')
 
 readonly CONFIG_DIRSPEC="${baseDir}${namespace:+/}$namespace"
 [ -d "$CONFIG_DIRSPEC" ] || mkdir -p -- "$CONFIG_DIRSPEC" || { printf >&2 'ERROR: Could not initialize database store at %s!\n' "$CONFIG_DIRSPEC"; exit 1; }
-readonly TABLE_FILESPEC="${CONFIG_DIRSPEC}/$table"
-readonly LOCK_FILESPEC="${CONFIG_DIRSPEC}/.${table}.lock"
+if [ -n "$view" ]; then
+    readonly TABLE_FILESPEC="${CONFIG_DIRSPEC}/.${table}.${view}"
+else
+    readonly TABLE_FILESPEC="${CONFIG_DIRSPEC}/$table"
+    readonly LOCK_FILESPEC="${CONFIG_DIRSPEC}/.${table}.lock"
+fi
 
 if [ ${#queriedColumns[@]} -gt 0 -o ${#updatedColumns[@]} -gt 0 ]; then
     if ! translateColumnNamesToIndices; then
