@@ -1,14 +1,14 @@
 #!/bin/bash
 
-load temp_database
+load view_cleanup
 
-setup()
+temp_view_setup()
 {
     initialize_table "$BATS_TEST_NAME" from some-entries
     viewName="$(miniDB --table "$BATS_TEST_NAME" --create-view)"
 }
 
-teardown()
+setup()
 {
-    miniDB --table "$BATS_TEST_NAME" --drop --view "${viewName:?}"
+    temp_view_setup
 }

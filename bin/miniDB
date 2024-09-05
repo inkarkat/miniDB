@@ -984,7 +984,9 @@ lockedCall()
 {
     local method="${1:?}"; shift
     local mode=write; [ "$needReadLock" ] && mode=read
-    flock "$@" --conflict-exit-code 5 ${waitTimeout:+--timeout "$waitTimeout"} "$LOCK_FILESPEC" transactionalLockController "${lockControllerArgs[@]}" "$method" "$TABLE_FILESPEC" "$LOCK_FILESPEC" "$transactionOwner" "$mode" "$transactionTimeout"
+    flock "$@" --conflict-exit-code 5 ${waitTimeout:+--timeout "$waitTimeout"} "$LOCK_FILESPEC" transactionalLockController --rewrite "${lockControllerArgs[@]}" "$method" "$TABLE_FILESPEC" "$LOCK_FILESPEC" "$transactionOwner" "$mode" "$transactionTimeout"
+    # Note: Need to rewrite the table filespec to have the copy-on-write semantics
+    # that are needed to implement views.
 }
 startTransaction()
 {
