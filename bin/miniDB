@@ -444,7 +444,7 @@ do
 			fi >&2
 			;;
 	--truncate|-C)	shift; [ "$action" ] && multipleActionsError "$0"; action='truncate';;
-	--drop|-D)	shift; [ "$action" ] && multipleActionsError "$0"; action='drop'; postPostAction='removeLock';;
+	--drop|-D)	shift; [ "$action" ] && multipleActionsError "$0"; action='drop';;
 	--create-view)	shift; [ "$action" ] && multipleActionsError "$0"; action='createView'; needReadLock=t;;
 	--query|-q)	shift; [ "$action" ] && multipleActionsError "$0"; action='query'; key="$1"; needReadLock=t; shift
 			if containsTab "$key"; then
@@ -1053,12 +1053,12 @@ if [ ${#queriedColumns[@]} -gt 0 -o ${#updatedColumns[@]} -gt 0 ]; then
     fi
 fi
 
-if [ "$preAction" ]; then
+if [ -n "$preAction" ]; then
     "$preAction" || exit $?
 fi
 "$action"
 status=$?
-if [ "$postAction" ]; then
+if [ -n "$postAction" ]; then
     "$postAction"
 fi
 exit $status
