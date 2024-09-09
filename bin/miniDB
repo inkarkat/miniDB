@@ -900,6 +900,7 @@ drop()
 createView()
 {
     local viewFilespec="$(mktemp --tmpdir="${CONFIG_DIRSPEC:?}" ".${table:?}.XXXXXX" 2>/dev/null || echo "${CONFIG_DIRSPEC:?}/.${table:?}.$$${RANDOM}")"
+    [ -r "$TABLE_FILESPEC" ] || return 1
     cp --link --force "$TABLE_FILESPEC" "$viewFilespec" || return 1
     printf '%s\n' "${viewFilespec#${CONFIG_DIRSPEC}/.${table}.}"
 }
