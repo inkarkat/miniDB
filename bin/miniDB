@@ -934,7 +934,8 @@ removeLock()
 commandline()
 {
     [ "$needReadLock" ] || writeableCheck || return $?
-    local interpolatedCommands="${commands//"$fileMarker"/$TABLE_FILESPEC}"
+    local quotedTableFilespec; printf -v quotedTableFilespec %q "$TABLE_FILESPEC"
+    local interpolatedCommands="${commands//"$fileMarker"/$quotedTableFilespec}"
     eval "$interpolatedCommands"
 }
 
