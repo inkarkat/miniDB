@@ -796,6 +796,7 @@ updateSpecifiedColumns()
 		-e "s#^\\(${sedUpdatePattern}\\)"'\([0-9_]*[0-8_]\)9\(9*\)\($\|\t\)#\1\30\4\5#'
 		-e "t rollover${c}"
 		-e "s#^\\(${sedUpdatePattern}\\)"'\([0-9]*\)_\(0*\)\($\|\t\)#\1\39\4\5#'  # Turn the intermediate _ symbol back into 9.
+		-e "t return${c}"   # Neutralize the substitute condition for following column increments.
 		-e "b return${c}"
 	    )
 	else
