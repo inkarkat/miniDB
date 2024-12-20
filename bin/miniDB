@@ -62,6 +62,7 @@ TABLE [within NAMESPACE], using simple tab-separated data files as storage.
 HELPDESCRIPTION
     echo
     printShortUsage "$1"
+    echo
     cat <<HELPTEXT
     --basedir DIR		Set the base directory in which the NAMESPACE
 				dir / TABLE file is stored. Defaults to
@@ -69,7 +70,8 @@ HELPDESCRIPTION
     --base-type config|data|runtime|cache|temp
 				Set the base directory based on the passed
 				characterization. The default is "data".
-    --schema|-s "KEY COL1 [...]"Optional database schema; will be included as a
+    --schema|-s "KEY COL1 [...]"
+				Optional database schema; will be included as a
 				commented first line in the data file.
     --namespace|-n NAMESPACE	Optional application / use case for this tool's
 				use. Determines the table directory.
@@ -89,8 +91,7 @@ HELPDESCRIPTION
 				COL1=VALUE1 columns that match the passed schema
 				N=VALUE-N   columns with the passed indices,
 				starting with 0 for KEY, 1 for COL1
-    --column|-v COL1++|N++
-				Instead of updating the entire record, just
+    --column|-v COL1++|N++	Instead of updating the entire record, just
 				atomically increment specific columns:
 				COL1++ columns that match the passed schema
 				N++    columns with the passed indices,
@@ -114,8 +115,7 @@ HELPDESCRIPTION
 				--drop.
     --query|-q KEY		Query whether a record for KEY exists and return
 				it.
-    --fallback|-f FALLBACK-KEY
-				Lookup FALLBACK-KEY instead if KEY hasn't been
+    --fallback|-f FALLBACK-KEY	Lookup FALLBACK-KEY instead if KEY hasn't been
 				recorded.
     --columns|-c 0*|*|#|"COL1 [...]"|"N [...]"
 				Instead of returning the entire record (--query)
@@ -228,8 +228,7 @@ TRANSACTIONS:
 				--start-*-transaction.
     --within-transaction OWNER-ID
 				Perform an action within the transaction.
-    --end-transaction OWNER-ID
-				End the transaction, so that other clients can
+    --end-transaction OWNER-ID	End the transaction, so that other clients can
 				do updates again. If this does not happen within
 				TX-TIMEOUT, another transaction may be started
 				and aborts this one.
