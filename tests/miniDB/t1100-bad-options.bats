@@ -4,22 +4,19 @@ load usage
 load canned_databases
 
 @test "multiple actions print usage error" {
-    run miniDB --table some-entries --query foo --update "fox	blah	blah"
-    [ $status -eq 2 ]
+    run -2 miniDB --table some-entries --query foo --update "fox	blah	blah"
     assert_multiple_actions_error
-    [ "${lines[2]%% *}" = 'Usage:' ]
+    assert_line -n 2 -e '^Usage:'
 }
 
 @test "invalid base-type prints usage error" {
-    run miniDB --base-type doesNotExist --table whatever --query foo
-    [ $status -eq 2 ]
-    [ "${lines[0]}" = 'ERROR: Invalid base-type "doesNotExist".' ]
-    [ "${lines[2]%% *}" = 'Usage:' ]
+    run -2 miniDB --base-type doesNotExist --table whatever --query foo
+    assert_line -n 0 'ERROR: Invalid base-type "doesNotExist".'
+    assert_line -n 2 -e '^Usage:'
 }
 
 @test "invalid table with slash prints usage error" {
-    run miniDB --table not/allowed --query foo
-    [ $status -eq 2 ]
-    [ "${lines[0]}" = 'ERROR: TABLE must not contain slashes.' ]
-    [ "${lines[2]%% *}" = 'Usage:' ]
+    run -2 miniDB --table not/allowed --query foo
+    assert_line -n 0 'ERROR: TABLE must not contain slashes.'
+    assert_line -n 2 -e '^Usage:'
 }

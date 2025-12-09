@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 
+load fixture
 load temp_database
 load concurrent
 
@@ -7,7 +8,6 @@ increment()
 {
     miniDB "$@" --table "$BATS_TEST_NAME" pipethrough1 awk -F '\t' 'BEGIN { OFS = "\t" } $1 == "counter" { update = $2 += 1 } { print } END { if (! update) print "counter\t0" }' {}
 }
-
 
 
 @test "$CONCURRENT_NUMBER concurrent transactional updates to a table keep all updates" {

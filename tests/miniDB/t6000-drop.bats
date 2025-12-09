@@ -1,14 +1,14 @@
 #!/usr/bin/env bats
 
+load fixture
 load temp_database
 
 @test "existing database can be dropped" {
     initialize_table "$BATS_TEST_NAME" from one-entry
 
-    run miniDB --table "$BATS_TEST_NAME" --drop
-    [ $status -eq 0 ]
-    [ "${#lines[@]}" -eq 0 ]
-    ! table_exists "$BATS_TEST_NAME"
+    run -0 miniDB --table "$BATS_TEST_NAME" --drop
+    assert_equal ${#lines[@]} 0
+    run ! table_exists "$BATS_TEST_NAME"
 }
 
 @test "other tables are not affected" {
@@ -18,7 +18,7 @@ load temp_database
 
     miniDB --table "${BATS_TEST_NAME}1" --drop
 
-    ! table_exists "${BATS_TEST_NAME}1"
+    run ! table_exists "${BATS_TEST_NAME}1"
     table_exists "${BATS_TEST_NAME}11"
     table_exists "${BATS_TEST_NAME}2"
 

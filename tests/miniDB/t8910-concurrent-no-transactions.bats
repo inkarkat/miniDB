@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 
+load fixture
 load temp_database
 load concurrent
 
@@ -9,7 +10,6 @@ no_transaction_increment()
     let counter+=1
     miniDB "$@" --no-transaction --table "$BATS_TEST_NAME" --update "counter	$counter"
 }
-
 
 
 @test "$SEQUENTIAL_NUMBER sequential non-transactional updates to a table keep all updates" {

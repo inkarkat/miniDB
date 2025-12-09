@@ -1,0 +1,66 @@
+#!/bin/bash
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--basedir DIR|--base-type config|data|runtime|cache|temp] [-s|--schema "KEY COL1 [COL2 ...]"] [-n|--namespace NAMESPACE] -t|--table TABLE [-C|--input-truncate|-D|--input-drop] [--input-basedir DIR|--input-base-type config|data|runtime|cache|temp] [-S|--input-schema "KEY COL1 [COL2 ...]"] [-N|--input-namespace INPUT-NAMESPACE] -i|--input-table TABLE [--key-match PATTERN [--key-replacement REPLACEMENT]] [-v|--column-map COL1=INPUT-COL|N=INPUT-N [-v ...]]  [--duplicate-key existing|override|error|abort] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [(-x|--transactional [--transaction-timeout TX-TIMEOUT]|--within-transaction|-X|--no-transaction) [--timeout SECONDS] [--silence-transaction-errors]] ...'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '    ... FILE [...]'
+    printf 'Usage: cat FILE | %q %s\n' "$(basename "$1")" '    ...'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Update a destination table with records from INPUT-TABLE.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    cat <<HELPTEXT
+    --input-truncate|-C		Delete all existing records of INPUT-TABLE after
+				the merge.
+    --input-drop|-D		Completely wipe all records and the INPUT-TABLE
+				file after the merge.
+    --key-match PATTERN		Use text matching PATTERN as the record's key
+				instead of the text up to the first tab.
+    --key-replacement REPLACEMENT
+				Use REPLACEMENT (that can refer to PATTERN
+				capture groups via \1 etc.) instead of the full
+				matched PATTERN.
+    --column-map|-v COL1=INPUT-COL|N=INPUT-N
+				Map INPUT-COL to COL1 (matching the respective
+				schemas), or INPUT-N index to N starting with 0
+				for KEY, 1 for COL1
+				Any INPUT-COL|INPUT-N not mapped are skipped.
+				Any COL1|N of the destination table not mapped
+				are kept empty.
+    --duplicate-key existing	Ignore keys in the input that already are in the
+				database.
+    --duplicate-key override	Keys in the input override any existing records.
+    --duplicate-key error	Keys in the input cause an error if there's
+				already an existing record and are not imported
+				at all.
+    --duplicate-key abort	Keys in the input cause the entire merge to
+				abort if there's already an existing record; the
+				table is not modified or created.
+EXIT STATUS:
+    0	Complete success.
+    1	Failed to write the table file.
+    2	Bad invocation, wrong or missing command-line arguments.
+    3	Internal error or failed assertion.
+    5	Time out while waiting to start a transaction.
+    6	The current transaction has taken too long (TX-TIMEOUT).
+
+Example:
+HELPTEXT
+    printf '%q %s\n' "$(basename "$1")" '--foo bar /tmp/foobar'
+}

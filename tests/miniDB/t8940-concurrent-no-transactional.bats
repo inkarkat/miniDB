@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 
+load fixture
 load temp_database
 load concurrent
 
@@ -8,7 +9,6 @@ no_transaction_add()
     counter="${1:?}"; shift
     miniDB "$@" --no-transaction --table "$BATS_TEST_NAME" --update "$counter	dummy value"
 }
-
 
 
 @test "$SEQUENTIAL_NUMBER sequential non-transactional additions to a table keep all keys" {

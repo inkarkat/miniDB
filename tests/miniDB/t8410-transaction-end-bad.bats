@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 
+load fixture
 load temp_database
 
 setup()
@@ -10,9 +11,8 @@ setup()
 }
 
 @test "ending a transaction without having started one causes error" {
-    run miniDB --end-transaction Trans1 --table "$BATS_TEST_NAME"
-    [ $status -eq 6 ]
-    [ "$output" = "ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed." ]
+    run -6 miniDB --end-transaction Trans1 --table "$BATS_TEST_NAME"
+    assert_output 'ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed.'
 }
 
 @test "ending a transaction after it timed out and another one completed causes error" {
@@ -21,9 +21,8 @@ setup()
     miniDB --start-read-transaction Trans2 --table "$BATS_TEST_NAME"
     miniDB --end-transaction Trans2 --table "$BATS_TEST_NAME"
 
-    run miniDB --end-transaction Trans1 --table "$BATS_TEST_NAME"
-    [ $status -eq 6 ]
-    [ "$output" = "ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed." ]
+    run -6 miniDB --end-transaction Trans1 --table "$BATS_TEST_NAME"
+    assert_output 'ERROR: Not inside a transaction, or the transaction has timed out and another transaction was completed.'
 }
 
 @test "ending a transaction after it timed out and other one has been started causes error" {
@@ -31,7 +30,6 @@ setup()
     let NOW+=5
     miniDB --start-read-transaction Trans2 --table "$BATS_TEST_NAME"
 
-    run miniDB --end-transaction Trans1 --table "$BATS_TEST_NAME"
-    [ $status -eq 6 ]
-    [ "$output" = "ERROR: Another read transaction by Trans2 has been started; any changes have been lost." ]
+    run -6 miniDB --end-transaction Trans1 --table "$BATS_TEST_NAME"
+    assert_output 'ERROR: Another read transaction by Trans2 has been started; any changes have been lost.'
 }

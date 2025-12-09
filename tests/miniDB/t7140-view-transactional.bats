@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 
+load fixture
 load view_cleanup
 
 setup()
@@ -16,9 +17,9 @@ setup()
     miniDB --within-transaction "$TX" --table "$BATS_TEST_NAME" --query foo
 
     let NOW+=4
-    run miniDB --within-transaction "$TX" --table "$BATS_TEST_NAME" --create-view
-    [ "${lines[0]}" = "Warning: Current transaction timed out 2 seconds ago." ]
-    [ "${lines[1]}" != '' ]
+    run -0 miniDB --within-transaction "$TX" --table "$BATS_TEST_NAME" --create-view
+    assert_line -n 0 "Warning: Current transaction timed out 2 seconds ago."
+    refute_line -n 1 ''
     viewName="${lines[1]}"
 }
 
@@ -29,13 +30,11 @@ setup()
     viewName="$(miniDB --within-transaction "$TX" --table "$BATS_TEST_NAME" --create-view)"
     miniDB --within-transaction "$TX" --table "$BATS_TEST_NAME" --update "new This has been added	100"
 
-    run miniDB --table "$BATS_TEST_NAME" --view "$viewName" --query foo
-    [ $status -eq 0 ]
-    [ "$output" = 'foo	A Foo has been updated	43' ]
+    run -0 miniDB --table "$BATS_TEST_NAME" --view "$viewName" --query foo
+    assert_output 'foo	A Foo has been updated	43'
 
-    run miniDB --table "$BATS_TEST_NAME" --view "$viewName" --query new
-    [ $status -eq 4 ]
-    [ "$output" = '' ]
+    run -4 miniDB --table "$BATS_TEST_NAME" --view "$viewName" --query new
+    assert_output ''
 
     miniDB --end-transaction "$TX" --table "$BATS_TEST_NAME"
 }
@@ -46,8 +45,7 @@ setup()
     viewName="$(miniDB --within-transaction "$TX" --table "$BATS_TEST_NAME" --create-view)"
     miniDB --abort-write-transaction "$TX" --table "$BATS_TEST_NAME"
 
-    run miniDB --table "$BATS_TEST_NAME" --view "$viewName" --query foo
-    [ $status -eq 0 ]
-    [ "$output" = 'foo	A Foo has been updated	43' ]
+    run -0 miniDB --table "$BATS_TEST_NAME" --view "$viewName" --query foo
+    assert_output 'foo	A Foo has been updated	43'
     assert_table_row "$BATS_TEST_NAME" \$ "foo	The Foo is here	42"
 }

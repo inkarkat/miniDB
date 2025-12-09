@@ -1,15 +1,14 @@
 #!/usr/bin/env bats
 
+load fixture
+
 @test "drop action with no table prints message and usage instructions" {
-    run miniDB --drop
-    [ $status -eq 2 ]
-    [ "${lines[0]}" = 'ERROR: No TABLE passed.' ]
-    [ "${lines[2]%% *}" = 'Usage:' ]
+    run -2 miniDB --drop
+    assert_line -n 0 'ERROR: No TABLE passed.'
+    assert_line -n 2 -e '^Usage:'
 }
 
 @test "a drop of a non-existing database fails" {
-    run miniDB --table doesNotExist --drop
-
-    [ $status -eq 1 ]
-    [ "$output" = "" ]
+    run -1 miniDB --table doesNotExist --drop
+    assert_output ''
 }

@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 
+load fixture
 load temp_database
 
 setup()
@@ -15,7 +16,6 @@ setup()
     lock_is_shared "$BATS_TEST_NAME"
 
     let NOW+=1
-    run miniDB --upgrade-to-write-transaction Trans1 --table "$BATS_TEST_NAME"
-    [ $status -eq 6 ]
-    [ "$output" = "ERROR: Another shared read transaction is already in progress." ]
+    run -6 miniDB --upgrade-to-write-transaction Trans1 --table "$BATS_TEST_NAME"
+    assert_output 'ERROR: Another shared read transaction is already in progress.'
 }

@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 
+load fixture
 load temp_database
 
 setup()
@@ -34,15 +35,13 @@ setup()
 }
 
 @test "one transaction query of existing key" {
-    run miniDB "${TX_ARGS[@]}" --query P1
-    [ $status -eq 0 ]
-    [ "$output" = 'P1	Bash	Johnny' ]
+    run -0 miniDB "${TX_ARGS[@]}" --query P1
+    assert_output 'P1	Bash	Johnny'
 }
 
 @test "one transaction query of non-existing key" {
-    run miniDB "${TX_ARGS[@]}" --query P0
-    [ $status -eq 4 ]
-    [ "${#lines[@]}" -eq 0 ]
+    run -4 miniDB "${TX_ARGS[@]}" --query P0
+    assert_equal ${#lines[@]} 0
 }
 
 @test "one transaction update of an existing row" {
@@ -51,15 +50,14 @@ setup()
 }
 
 @test "one transaction delete of a row" {
-    run miniDB "${TX_ARGS[@]}" --delete P2
+    run -0 miniDB "${TX_ARGS[@]}" --delete P2
     assert_table_row tx 3 "P3	Null	Dave"
 }
 
 @test "one transaction drop of database" {
-    run miniDB "${TX_ARGS[@]}" --drop
-    [ $status -eq 0 ]
-    [ "${#lines[@]}" -eq 0 ]
-    ! table_exists tx
+    run -0 miniDB "${TX_ARGS[@]}" --drop
+    assert_equal ${#lines[@]} 0
+    run ! table_exists tx
 }
 
 @test "end transaction" {

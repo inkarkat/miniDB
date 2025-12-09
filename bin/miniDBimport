@@ -1,0 +1,68 @@
+#!/bin/bash
+
+printShortUsage()
+{
+    # Note: short followed by long option; if the user knows the short one, she can
+    # skim the long one.
+    printf 'Usage: %q %s\n' "$(basename "$1")" '[--basedir DIR|--base-type config|data|runtime|cache|temp] [-s|--schema "KEY COL1 [COL2 ...]"] [-n|--namespace NAMESPACE] -t|--table TABLE [-C|--truncate] [-s|--skip PATTERN] [--key-match PATTERN [--key-replacement REPLACEMENT]] [--key-separator PATTERN] [--column-separator PATTERN] [--ignore-non-key-lines|--non-key-lines-as-column] [--duplicate-key first|last|error|abort] [-?|-h|--help]'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '... [(-x|--transactional [--transaction-timeout TX-TIMEOUT]|--within-transaction|-X|--no-transaction) [--timeout SECONDS] [--silence-transaction-errors]] ...'
+    printf 'Usage: %q %s\n' "$(basename "$1")" '    ... FILE [...]'
+    printf 'Usage: cat FILE | %q %s\n' "$(basename "$1")" '    ...'
+}
+printUsage()
+{
+    # This is the short help when launched with no or incorrect arguments.
+    # It is printed to stderr to avoid accidental processing.
+    printShortUsage "$1" >&2
+    printf >&2 '\nTry %q --help for more information.\n' "$(basename "$1")"
+}
+printLongUsage()
+{
+    # This is the long "man page" when launched with the help argument.
+    # It is printed to stdout to allow paging with 'more'.
+    cat <<HELPDESCRIPTION
+Create a table with data read from standard input or passed FILE(s), while
+allowing for simple massaging and filtering of data.
+HELPDESCRIPTION
+    echo
+    printShortUsage "$1"
+    cat <<HELPTEXT
+    --truncate|-C		Instead of causing an error if the TABLE already
+				exists, delete all existing records.
+    --skip|-s PATTERN		Lines matching PATTERN are completely ignored.
+    --key-match PATTERN		Use text matching PATTERN as the record's key
+				instead of the text up to the first tab.
+    --key-replacement REPLACEMENT
+				Use REPLACEMENT (that can refer to PATTERN
+				capture groups via \1 etc.) instead of the full
+				matched PATTERN.
+    --key-separator PATTERN	Columns are delimited from keys by PATTERN
+				instead of a tab.
+    --column-separator PATTERN	Columns are delimited from each other by PATTERN
+				instead of a tab.
+    --ignore-non-key-lines	Lines that do not have a proper separator or
+				don't match --key-match are ignored instead of
+				causing an error.
+    --non-key-lines-as-column	Lines that do not have a proper separator or
+				don't match --key-match are added as a single
+				(multi-line) column at the end of the record.
+    --duplicate-key first	Ignore subsequent keys in the input that have
+				already been seen.
+    --duplicate-key last	Duplicate keys in the input override any
+				previously seen records.
+    --duplicate-key error	Duplicate keys in the input cause an error and
+				are not imported at all.
+    --duplicate-key abort	Duplicate keys in the input cause the entire
+				import to abort; the table is not modified or created.
+EXIT STATUS:
+    0	Complete success.
+    1	Failed to write the table file.
+    2	Bad invocation, wrong or missing command-line arguments.
+    3	Internal error or failed assertion.
+    5	Time out while waiting to start a transaction.
+    6	The current transaction has taken too long (TX-TIMEOUT).
+
+Example:
+HELPTEXT
+    printf '%q %s\n' "$(basename "$1")" '--foo bar /tmp/foobar'
+}

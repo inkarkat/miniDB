@@ -1,11 +1,12 @@
 #!/usr/bin/env bats
 
+load fixture
 load canned_databases
 
 @test "two optional empty values in the middle" {
-    [ "$(miniDB --table empty-columns --query opt --columns 'NOTES OPT3 OPT1 VAL'; printf \$)" = 'a note			a value$' ]
+    assert_equal "$(miniDB --table empty-columns --query opt --columns 'NOTES OPT3 OPT1 VAL'; printf \$)" 'a note			a value$'
 }
 
 @test "all empty optional values" {
-    [ "$(miniDB --table empty-columns --query opt --columns 'OPT1 OPT2 OPT3'; printf \$)" = '		$' ]
+    assert_equal "$(miniDB --table empty-columns --query opt --columns 'OPT1 OPT2 OPT3'; printf \$)" '		$'
 }

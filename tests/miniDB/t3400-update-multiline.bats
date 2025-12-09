@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 
+load fixture
 load temp_database
 
 @test "update with multi-line string adds a single row" {
@@ -12,7 +13,7 @@ multi-line
 text	with
 multiple columns'
 
-    updatedRowNum="$(get_row_number "$BATS_TEST_NAME")"; [ "$updatedRowNum" -eq $((rowNum + 1)) ]
+    assert_row_count "$(get_row_number "$BATS_TEST_NAME")" $((rowNum + 1))
 }
 
 @test "update with multi-line string can be queried again" {
@@ -24,9 +25,7 @@ text	with
 multiple columns'
     miniDB --table "$BATS_TEST_NAME" --update "$update"
 
-    result="$(miniDB --table "$BATS_TEST_NAME" --query key)"
-
-    [ "$result" = "$update" ]
+    assert_equal "$(miniDB --table "$BATS_TEST_NAME" --query key)" "$update"
 }
 
 @test "update with backslashes can be queried again" {
@@ -34,9 +33,7 @@ multiple columns'
     update='key	/value\	\\column//	>\t\r\n<	END'
     miniDB --table "$BATS_TEST_NAME" --update "$update"
 
-    result="$(miniDB --table "$BATS_TEST_NAME" --query key)"
-
-    [ "$result" = "$update" ]
+    assert_equal "$(miniDB --table "$BATS_TEST_NAME" --query key)" "$update"
 }
 
 @test "update with multi-line and backslashed key" {
@@ -46,9 +43,7 @@ multiple columns'
     update="$key	value:	looks normal"
     miniDB --table "$BATS_TEST_NAME" --update "$update"
 
-    result="$(miniDB --table "$BATS_TEST_NAME" --query "$key")"
-
-    [ "$result" = "$update" ]
+    assert_equal "$(miniDB --table "$BATS_TEST_NAME" --query "$key")" "$update"
 }
 
 @test "update with multi-line and backslashed fallback key" {
@@ -58,9 +53,7 @@ multiple columns'
     update="$key	value:	looks normal"
     miniDB --table "$BATS_TEST_NAME" --update "$update"
 
-    result="$(miniDB --table "$BATS_TEST_NAME" --query notInHere --fallback "$key")"
-
-    [ "$result" = "$update" ]
+    assert_equal "$(miniDB --table "$BATS_TEST_NAME" --query notInHere --fallback "$key")" "$update"
 }
 
 @test "update with echo arguments at the beginning of key properly outputs the key" {
@@ -69,7 +62,5 @@ multiple columns'
     update="$key	some value"
     miniDB --table "$BATS_TEST_NAME" --update "$update"
 
-    result="$(miniDB --table "$BATS_TEST_NAME" --query "$key")"
-
-    [ "$result" = "$update" ]
+    assert_equal "$(miniDB --table "$BATS_TEST_NAME" --query "$key")" "$update"
 }

@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 
+load fixture
 load temp_database
 
 setup()
@@ -12,7 +13,6 @@ setup()
 @test "when inside a current read transaction, writes cause an error" {
     miniDB --start-read-transaction Trans1 --table "$BATS_TEST_NAME"
     let NOW+=1
-    run miniDB --within-transaction Trans1 --table "$BATS_TEST_NAME" --update "foo	A Foo has been updated	43"
-    [ $status -eq 2 ]
-    [ "$output" = "ERROR: Not in a write transaction." ]
+    run -2 miniDB --within-transaction Trans1 --table "$BATS_TEST_NAME" --update "foo	A Foo has been updated	43"
+    assert_output 'ERROR: Not in a write transaction.'
 }

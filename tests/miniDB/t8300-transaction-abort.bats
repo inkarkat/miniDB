@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 
+load fixture
 load temp_database
 
 setup()
@@ -49,9 +50,10 @@ setup()
 @test "aborting after table creation leaves behind an empty table" {
     clean_table "$BATS_TEST_NAME"
     miniDB --start-write-transaction "$TX" --table "$BATS_TEST_NAME"
-    miniDB --within-transaction "$TX" --table "$BATS_TEST_NAME" --update "foo	This is new"
-    [ "$(get_row_number "$BATS_TEST_NAME")" -eq 2 ]
-    miniDB --abort-write-transaction "$TX" --table "$BATS_TEST_NAME"
 
-    [ "$(get_row_number "$BATS_TEST_NAME")" -eq 0 ]
+    miniDB --within-transaction "$TX" --table "$BATS_TEST_NAME" --update "foo	This is new"
+    assert_row_count 2
+
+    miniDB --abort-write-transaction "$TX" --table "$BATS_TEST_NAME"
+    assert_row_count 0
 }

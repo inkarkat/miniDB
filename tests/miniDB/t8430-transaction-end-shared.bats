@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 
+load fixture
 load temp_database
 
 setup()
@@ -55,5 +56,5 @@ setup()
     miniDB --within-transaction Trans3 --table "$BATS_TEST_NAME" --query foo
 
     miniDB --end-transaction Trans3 --table "$BATS_TEST_NAME"
-    ! lock_is_shared "$BATS_TEST_NAME"
+    run ! lock_is_shared "$BATS_TEST_NAME"
 }

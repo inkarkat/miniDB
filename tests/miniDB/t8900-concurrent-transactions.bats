@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 
+load fixture
 load temp_database
 load concurrent
 
@@ -12,7 +13,6 @@ transactional_increment()
     miniDB "$@" --within-transaction "$owner" --table "$BATS_TEST_NAME" --update "counter	$counter"
     miniDB "$@" --end-transaction "$owner" --table "$BATS_TEST_NAME"
 }
-
 
 
 @test "$SEQUENTIAL_NUMBER sequential transactional updates to a table keep all updates" {
@@ -49,4 +49,3 @@ transactional_increment()
     wait
     assert_counter -eq $CONCURRENT_NUMBER
 }
-

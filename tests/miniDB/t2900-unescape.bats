@@ -1,8 +1,10 @@
 #!/usr/bin/env bats
 
+load fixture
+
 @test "unescape plain output argument" {
     readonly output="Just some plain text."
-    [ "$(miniDB --unescape "$output")" = "$output" ]
+    assert_equal "$(miniDB --unescape "$output")" "$output"
 }
 
 @test "unescape output with newlines and backslashes passed as argument" {

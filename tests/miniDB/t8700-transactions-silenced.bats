@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 
+load fixture
 load temp_database
 
 setup()
@@ -13,9 +14,8 @@ setup()
     miniDB --start-write-transaction Trans1 --table "$BATS_TEST_NAME"
     miniDB --within-transaction Trans1 --table "$BATS_TEST_NAME" --update "foo	A Foo has been updated	43"
 
-    run miniDB --silence-transaction-errors --start-read-transaction Trans1 --table "$BATS_TEST_NAME"
-    [ $status -eq 1 ]
-    [ -z "$output" ]
+    run -1 miniDB --silence-transaction-errors --start-read-transaction Trans1 --table "$BATS_TEST_NAME"
+    assert_output ''
 }
 
 @test "silence error when upgrading a transaction when it has become a shared one" {
@@ -24,15 +24,13 @@ setup()
     lock_is_shared "$BATS_TEST_NAME"
 
     let NOW+=1
-    run miniDB --silence-transaction-errors --upgrade-to-write-transaction Trans1 --table "$BATS_TEST_NAME"
-    [ $status -eq 6 ]
-    [ -z "$output" ]
+    run -6 miniDB --silence-transaction-errors --upgrade-to-write-transaction Trans1 --table "$BATS_TEST_NAME"
+    assert_output ''
 }
 
 @test "silence error when ending a transaction without having started one" {
-    run miniDB --silence-transaction-errors --end-transaction Trans1 --table "$BATS_TEST_NAME"
-    [ $status -eq 6 ]
-    [ -z "$output" ]
+    run -6 miniDB --silence-transaction-errors --end-transaction Trans1 --table "$BATS_TEST_NAME"
+    assert_output ''
 }
 
 @test "silence error when ending a transaction after it timed out and other one has been started" {
@@ -40,26 +38,23 @@ setup()
     let NOW+=5
     miniDB --start-read-transaction Trans2 --table "$BATS_TEST_NAME"
 
-    run miniDB --silence-transaction-errors --end-transaction Trans1 --table "$BATS_TEST_NAME"
-    [ $status -eq 6 ]
-    [ -z "$output" ]
+    run -6 miniDB --silence-transaction-errors --end-transaction Trans1 --table "$BATS_TEST_NAME"
+    assert_output ''
 }
 
 @test "silence error when aborting a read transaction" {
     initialize_table "$BATS_TEST_NAME" from one-entry
     miniDB --start-read-transaction Trans1 --table "$BATS_TEST_NAME"
     miniDB --within-transaction Trans1 --table "$BATS_TEST_NAME" --query foo
-    run miniDB --silence-transaction-errors --abort-write-transaction Trans1 --table "$BATS_TEST_NAME"
-    [ $status -eq 2 ]
-    [ -z "$output" ]
+    run -2 miniDB --silence-transaction-errors --abort-write-transaction Trans1 --table "$BATS_TEST_NAME"
+    assert_output ''
 }
 
 @test "silence error when inside a current read transaction, writes cause an error" {
     miniDB --start-read-transaction Trans1 --table "$BATS_TEST_NAME"
     let NOW+=1
-    run miniDB --silence-transaction-errors --within-transaction Trans1 --table "$BATS_TEST_NAME" --update "foo	A Foo has been updated	43"
-    [ $status -eq 2 ]
-    [ -z "$output" ]
+    run -2 miniDB --silence-transaction-errors --within-transaction Trans1 --table "$BATS_TEST_NAME" --update "foo	A Foo has been updated	43"
+    assert_output ''
 }
 
 @test "silence error when inside an expired transaction and another one has been started causes error" {
@@ -67,7 +62,6 @@ setup()
     let NOW+=5
     miniDB --start-read-transaction Trans2 --table "$BATS_TEST_NAME"
 
-    run miniDB --silence-transaction-errors --within-transaction Trans1 --table "$BATS_TEST_NAME" --query foo
-    [ $status -eq 6 ]
-    [ -z "$output" ]
+    run -6 miniDB --silence-transaction-errors --within-transaction Trans1 --table "$BATS_TEST_NAME" --query foo
+    assert_output ''
 }

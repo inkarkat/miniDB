@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 
+load fixture
 load temp_database
 
 setup()
@@ -13,27 +14,24 @@ setup()
     miniDB --start-read-transaction Trans1 --table "$BATS_TEST_NAME"
 
     let NOW+=4
-    run miniDB --upgrade-to-write-transaction Trans1 --table "$BATS_TEST_NAME"
-    [ $status -eq 0 ]
-    [ "$output" = "Warning: Current transaction timed out 1 second ago." ]
+    run -0 miniDB --upgrade-to-write-transaction Trans1 --table "$BATS_TEST_NAME"
+    assert_output 'Warning: Current transaction timed out 1 second ago.'
 }
 
 @test "when upgrading a write transaction, a warning is printed" {
     miniDB --start-write-transaction Trans1 --table "$BATS_TEST_NAME"
 
     let NOW+=1
-    run miniDB --upgrade-to-write-transaction Trans1 --table "$BATS_TEST_NAME"
-    [ $status -eq 0 ]
-    [ "$output" = "Note: Current transaction already is a write transaction, no need to upgrade." ]
+    run -0 miniDB --upgrade-to-write-transaction Trans1 --table "$BATS_TEST_NAME"
+    assert_output 'Note: Current transaction already is a write transaction, no need to upgrade.'
 }
 
 @test "upgrading a read transaction works and extends the expiry time" {
     miniDB --start-read-transaction Trans1 --table "$BATS_TEST_NAME"
 
     let NOW+=2
-    run miniDB --upgrade-to-write-transaction Trans1 --table "$BATS_TEST_NAME"
-    [ $status -eq 0 ]
-    [ "$output" = "" ]
+    run -0 miniDB --upgrade-to-write-transaction Trans1 --table "$BATS_TEST_NAME"
+    assert_output ''
 
     let NOW+=2
     miniDB --within-transaction Trans1 --table "$BATS_TEST_NAME" --update "foo	A Foo has been updated	43"

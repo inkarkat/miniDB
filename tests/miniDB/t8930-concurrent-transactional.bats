@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 
+load fixture
 load temp_database
 load concurrent
 
@@ -8,7 +9,6 @@ transactional_add()
     counter="${1:?}"; shift
     miniDB "$@" --transactional --table "$BATS_TEST_NAME" --update "$counter	dummy value"
 }
-
 
 
 @test "$SEQUENTIAL_NUMBER sequential transactional additions to a table keep all keys" {

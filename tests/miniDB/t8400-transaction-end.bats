@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 
+load fixture
 load temp_database
 
 setup()
@@ -49,8 +50,8 @@ setup()
 @test "ending without table creation does not create a table" {
     clean_table "$BATS_TEST_NAME"
     miniDB --start-write-transaction "$TX" --table "$BATS_TEST_NAME"
-    ! table_exists "$BATS_TEST_NAME"
+    run ! table_exists "$BATS_TEST_NAME"
     miniDB --end-transaction "$TX" --table "$BATS_TEST_NAME"
 
-    ! table_exists "$BATS_TEST_NAME"
+    run ! table_exists "$BATS_TEST_NAME"
 }

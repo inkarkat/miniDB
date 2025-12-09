@@ -45,5 +45,10 @@ dump_table()
 
 assert_table_row()
 {
-    [ "$(sed -n -e "${2:?}p" "${XDG_DATA_HOME}/${1:?}")" = "${3?}" ]
+    assert_equal "$(sed -n -e "${2:?}p" "${XDG_DATA_HOME}/${1:?}")" "${3?}"
+}
+
+assert_row_count()
+{
+    assert_equal "$(get_row_number "$BATS_TEST_NAME")" ${1:?}
 }

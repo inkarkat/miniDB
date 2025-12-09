@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 
+load fixture
 load temp_database
 
 setup()
@@ -13,9 +14,8 @@ setup()
     miniDB --start-write-transaction Trans1 --table "$BATS_TEST_NAME"
     miniDB --within-transaction Trans1 --table "$BATS_TEST_NAME" --update "foo	A Foo has been updated	43"
     let NOW+=5
-    run miniDB --end-transaction Trans1 --table "$BATS_TEST_NAME"
-    [ $status -eq 0 ]
-    [ "$output" = "Warning: Current transaction timed out 2 seconds ago." ]
+    run -0 miniDB --end-transaction Trans1 --table "$BATS_TEST_NAME"
+    assert_output 'Warning: Current transaction timed out 2 seconds ago.'
 }
 
 @test "ending after the shared transaction timed out prints a warning" {
@@ -25,7 +25,6 @@ setup()
     lock_is_shared "$BATS_TEST_NAME"
 
     let NOW+=5
-    run miniDB --end-transaction Trans1 --table "$BATS_TEST_NAME"
-    [ $status -eq 0 ]
-    [ "$output" = "Warning: Shared read transaction timed out 3 seconds ago." ]
+    run -0 miniDB --end-transaction Trans1 --table "$BATS_TEST_NAME"
+    assert_output 'Warning: Shared read transaction timed out 3 seconds ago.'
 }

@@ -1,5 +1,6 @@
 #!/usr/bin/env bats
 
+load fixture
 load temp_database
 
 @test "truncation of existing database keeps the lock file" {
@@ -16,7 +17,7 @@ load temp_database
     lock_exists "$BATS_TEST_NAME"
 
     miniDB --transactional --table "$BATS_TEST_NAME" --drop
-    ! lock_exists "$BATS_TEST_NAME"
+    run ! lock_exists "$BATS_TEST_NAME"
 }
 
 @test "dropping of existing database removes the lock file at the end of the transaction" {
@@ -27,5 +28,5 @@ load temp_database
     miniDB --within-transaction "$TX" --table "$BATS_TEST_NAME" --drop
     miniDB --end-transaction "$TX" --table "$BATS_TEST_NAME"
 
-    ! lock_exists "$BATS_TEST_NAME"
+    run ! lock_exists "$BATS_TEST_NAME"
 }
