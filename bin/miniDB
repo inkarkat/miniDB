@@ -43,7 +43,6 @@ printShortUsage()
     printf 'Usage: eval "$(%q %s)"\n' "$(basename "$1")" '-q|--query KEY -c|--columns "COL1 [...]"|"N [...]" --as-shell-variables'
     printf 'Usage: %q %s\n' "$(basename "$1")" '... -k|--query-keys'
     printf 'Usage: %q %s | %q -E|--unescape [-]\n' "$(basename "$1")" '-q|--query KEY -c|--columns COLN|N --as-escaped-lines' "$(basename "$1")"
-    printf 'Usage: [DEBUG=%q:sed[!]] %q ...	DEBUG=%q:sed also prints it, DEBUG=%q:sed! just prints and skips execution\n' "$(basename "$1")" "$(basename "$1")" "$(basename "$1")" "$(basename "$1")"
 }
 printUsage()
 {
@@ -272,12 +271,7 @@ printf '%q %s\n' "$(basename "$1")" '--transactional --table creationTimes --que
 
 sedWrapper()
 {
-    local sedPrefix
-    case ",${DEBUG:-}," in
-	*,miniDB:sed,*) sedPrefix=verbose;;
-	*,miniDB:sed\!,*) sedPrefix=echotrace;;
-    esac
-    VERBOSE_IFS="${VERBOSE_IFS-newline}" ECHOTRACE_IFS="${ECHOTRACE_IFS-newline}" $sedPrefix sed "$@"
+    ${DEBUG:+env VERBOSE_IFS="${VERBOSE_IFS-newline}" ECHOTRACE_IFS="${ECHOTRACE_IFS-newline}" debugcommand --module sed --} sed "$@"
 }
 
 containsTab()

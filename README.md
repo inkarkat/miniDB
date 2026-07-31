@@ -13,6 +13,7 @@ Each database "table" is represented as an individual file (put by default under
 * Bash, GNU `sed`
 * `flock` for transaction support
 * [inkarkat/withTransaction](https://github.com/inkarkat/withTransaction) for transaction support
+* [inkarkat/shell-debugging](https://github.com/inkarkat/shell-debugging) for debugging (optional)
 * automated testing is done with _bats - Bash Automated Testing System_ (https://github.com/bats-core/bats-core)
 * [inkarkat/pipes](https://github.com/inkarkat/pipes) for automated tests
 
